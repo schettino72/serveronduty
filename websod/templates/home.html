@@ -1,0 +1,45 @@
+<%inherit file="layout.html"/>
+
+<h2>Latest integrations</h2>
+
+<table>
+	<tr>
+		<th>
+			Revision
+		</th>
+		<th>
+			Global status
+		</th>
+		<th>
+			Source
+		</th>
+	</tr>
+	%if len(last_integrations) > 0:
+		%for intg in last_integrations:
+			<tr class="${intg.result}_tablerow">
+				<td>
+					<a href="${ url_for('integration', id=intg.id) }">
+					${intg.revision}
+					</a>
+				</td>
+				<td>
+					${intg.result}
+				</td>
+				<td>
+					${intg.source}
+				</td>
+			</tr>
+		%endfor
+	%else:
+		<tr>
+			<td colspan="3">
+				There are no recent integrations.
+			</td>
+		</tr>
+	%endif
+</table>
+
+<!--
+<h2>Description of goals</h2>
+This is the Web-based UI for query information from the Server On Duty database.
+-->

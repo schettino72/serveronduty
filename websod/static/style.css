@@ -1,0 +1,63 @@
+
+/* base layout */
+body {
+    background-color: #EFE6C9;
+    font-family: Verdana;
+}
+
+h2 {
+    /*color: #6E7376;*/
+    color: #B2581C;
+    font-weight: bold;
+    font-size: 22px;
+}
+
+.logo_text {
+    font-family: Arial;
+    font-weight: bold;
+    font-size: 25px;
+}
+
+.middle {
+    padding-top: 40px;
+    padding-bottom: 20px;
+}
+
+.content {
+    float: left;
+}
+
+.footer {
+    clear: both;
+    text-align: right;
+    font-size: small;
+    padding-right: 200px;
+}
+/*------------------------------*/
+
+
+
+/* global left menu */
+.left_menu {
+    float: left;
+    padding-right: 20px;
+}
+.left_menu a {
+    display: block;
+    color: #779BB1;
+}
+.left_menu:hover {
+    color: #4E8242;
+}
+/*-------------------------------*/
+
+
+
+.success_tablerow {
+    color: green;
+}
+
+.failure_tablerow {
+    color: red;
+}
+

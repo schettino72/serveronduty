@@ -1,0 +1,20 @@
+<%inherit file="layout.html"/>
+
+<h2>Integrations</h2>
+
+<table>
+  <tr>
+    <th>Revision</th>
+    <th>Status</th>
+    <th>Start date</th>
+  </tr>
+
+%for intg in integrations:
+  <tr class="${intg.result}_tablerow">
+    <td><a href="${ url_for('integration', id=intg.id) }">${intg.revision}</a></td>
+    <td>${intg.result}</td>
+    <td>${intg.started}</td>
+  </tr>
+%endfor
+
+</table>

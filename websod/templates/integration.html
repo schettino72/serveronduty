@@ -1,0 +1,15 @@
+<%inherit file="layout.html"/>
+
+<p>${integration.source} @ ${integration.machine}</p>
+<h2>${integration.revision}</h2>
+
+${integration.result}
+
+${integration.started}
+
+
+<ul>
+%for job in integration.jobs:
+   <li class=${job.result}>${job.name}</li>
+%endfor
+</ul>
