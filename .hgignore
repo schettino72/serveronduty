@@ -2,6 +2,6 @@ syntax:glob
 
 *.pyc
 
-websod.db
+sod.db
 sodd/pool
 sodd/trunk
