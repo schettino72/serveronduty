@@ -29,9 +29,6 @@ def doit_unstable_integration(base_path, task_name):
         run_p = subprocess.Popen((run_cmd % (dodo, task_name)).split(),
                                  stdout=subprocess.PIPE)
         output = run_p.communicate()[0]
-        print "&&&&" * 20
-        print output
-        print "&&&&" * 20
         try_results = simplejson.loads(output)
         added_something = False
         for res in try_results:
