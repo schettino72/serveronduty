@@ -11,7 +11,7 @@ except ImportError:
     from pysqlite2 import dbapi2 as sqlite3
 
 
-import vcstool
+import vcs
 
 def doit_unstable_integration(base_path, task_name):
     """wrap doit integration with some logic to deal with unstable tests
@@ -75,16 +75,18 @@ def save_job(cursor, result, type_, integration_id):
     cursor.connection.commit()
 
 
-def loop_vcs(vcs, start_from, integrate_list, new_event):
+def loop_vcs(code, start_from, integrate_list, new_event):
     last_rev = start_from
     while True:
-        revs = vcs.getRevisionNumbers(last_rev)
+        revs = code.get_new_revisions(last_rev)
+        print "got revs: %s" % ", ".join(revs)
 
         if(revs):
             integrate_list.extend(revs)
             new_event.set()
             last_rev = integrate_list[-1]
-        time.sleep(10*60)
+        #time.sleep(10*60)
+        time.sleep(20)
 
 
 def main(project):
@@ -95,13 +97,13 @@ def main(project):
     # list of integrations to be processed
     integrate_list = []
 
-    vcs = vcstool.VcsTool(project['url'])
-    vcs.makeWorkingCopy('trunk')
+    code = vcs.get_vcs(project['vcs'], project['url'], 'trunk')
+    code.clone()
 
     # create thread for VCS polling
-    newIntegrationAvailable = threading.Event()
-    newIntegrationAvailable.set()
-    args = (vcs, project['start_rev'], integrate_list, newIntegrationAvailable)
+    newIntegration = threading.Event()
+    newIntegration.set()
+    args = (code, project['start_rev'], integrate_list, newIntegration)
     looping_vcs_t = threading.Thread(target=loop_vcs, args=args)
     # FIXME use event to kill thread (daemon threads is known to be unreliable)
     looping_vcs_t.daemon = True
@@ -111,23 +113,31 @@ def main(project):
     while True:
         # block until we get some work
         if not integrate_list:
-            newIntegrationAvailable.clear()
-            newIntegrationAvailable.wait()
+            newIntegration.clear()
+            # thread locking can't get Keyboard interrupts while blocked
+            while not newIntegration.isSet():
+                newIntegration.wait(1)
 
         integrate_rev = integrate_list.pop(0)
+        print "starting integration %s" % integrate_rev
+
+        # export revision to be tested
         integration_path = base_path + '/' + integrate_rev
-        vcs.export(integrate_rev, integration_path)
-        shutil.copy(base_path + "/dodo.py", integration_path + "/dodo.py")
-        shutil.copy(integration_path + '/local_config.py.DEVELOPER',
-                    integration_path + '/local_config.py')
+        code.export(integrate_rev, integration_path)
+        # FIXME NBET stuff
+        # shutil.copy(base_path + "/dodo.py", integration_path + "/dodo.py")
+        # shutil.copy(integration_path + '/local_config.py.DEVELOPER',
+        #             integration_path + '/local_config.py')
+
+        integration_id = save_integration(conn.cursor(), project['url'],
+                                          integrate_rev, 'kevin')
 
         for task in project['tasks']:
             json_result = doit_unstable_integration(integration_path, task)
             #result = simplejson.loads(json_result)
-            integration_id = save_integration(conn.cursor(), project['url'],
-                                              integrate_rev, 'kevin')
             save_job(conn.cursor(), json_result, integration_id, task)
             conn.commit()
+        print "finished integration %s" % integrate_rev
 
 
 if __name__ == "__main__":
