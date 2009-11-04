@@ -1,10 +1,12 @@
+import os
+import shutil
 import subprocess
+import threading
+import time
+import datetime
+
 import simplejson
 import yaml
-import threading
-import os
-import time
-import shutil
 
 try:
     import sqlite3
@@ -60,12 +62,20 @@ def doit_forget(base_path):
     forget_cmd = "doit -f %s/dodo.py forget"
     subprocess.Popen((forget_cmd % base_path).split()).communicate()
 
-def save_integration(cursor, source, revision, machine):
-    cursor.execute('''INSERT INTO integration (source, revision, machine)
-                                    VALUES (?, ?, ?)''',
-                                    (source, revision, machine))
+
+def save_integration(cursor, source, revision, machine, started):
+    cursor.execute('''
+        INSERT INTO integration (source, revision, machine, started)
+        VALUES (?,?,?,?)''', (source, revision, machine, started))
     cursor.connection.commit()
     return cursor.lastrowid
+
+
+def update_integration_elapsed(cursor, id, elapsed):
+    cursor.execute('''UPDATE integration SET elapsed=? WHERE id=?''',
+                   (elapsed, id))
+    cursor.connection.commit()
+
 
 def save_job(cursor, result, type_, integration_id):
     for row in result:
@@ -123,6 +133,8 @@ def main(project):
 
         integrate_rev = integrate_list.pop(0)
         print "starting integration %s" % integrate_rev
+        started_on = time.time()
+        started = datetime.datetime.utcfromtimestamp(started_on)
 
         # export revision to be tested
         integration_path = base_path + '/' + integrate_rev
@@ -133,7 +145,7 @@ def main(project):
         #             integration_path + '/local_config.py')
 
         integration_id = save_integration(conn.cursor(), project['url'],
-                                          integrate_rev, 'kevin')
+                                          integrate_rev, 'kevin', started)
 
         for task in project['tasks']:
             json_result = doit_unstable_integration(integration_path, task)
@@ -141,7 +153,8 @@ def main(project):
             save_job(conn.cursor(), json_result, task, integration_id)
             conn.commit()
         print "finished integration %s" % integrate_rev
-
+        elapsed = time.time() - started_on
+        update_integration_elapsed(conn.cursor(), integration_id, elapsed)
 
 if __name__ == "__main__":
     import sys
@@ -150,5 +163,3 @@ if __name__ == "__main__":
     project_file = open(sys.argv[1])
     project = yaml.load(project_file)
     main(project)
-
-

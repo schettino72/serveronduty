@@ -14,8 +14,8 @@
 			Source
 		</th>
 	</tr>
-	%if len(last_integrations) > 0:
-		%for intg in last_integrations:
+	%if len(latest_integrations) > 0:
+		%for intg in latest_integrations:
 			<tr class="${intg.result}_tablerow">
 				<td>
 					<a href="${ url_for('integration', id=intg.id) }">
