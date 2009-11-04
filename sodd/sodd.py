@@ -1,5 +1,6 @@
 import subprocess
 import simplejson
+import yaml
 import threading
 import os
 import time
@@ -145,7 +146,7 @@ if __name__ == "__main__":
     if len(sys.argv)!= 2:
         print "usage: python sodd.py <project.json>"
     project_file = open(sys.argv[1])
-    project = simplejson.load(project_file)
+    project = yaml.load(project_file)
     main(project)
 
 

@@ -13,7 +13,7 @@ class SVN(object):
 
     def clone(self):
         """SVN checkout"""
-	if not os.path.exists(self.work_path):
+        if not os.path.exists(self.work_path):
             subprocess.call(['svn', 'checkout', self.url, self.work_path])
 
 
@@ -51,7 +51,7 @@ class BZR(object):
 
     def clone(self):
         """SVN checkout"""
-	if not os.path.exists(self.work_path):
+        if not os.path.exists(self.work_path):
             subprocess.call(['bzr', 'branch', self.url, self.work_path])
 
 
@@ -81,9 +81,49 @@ class BZR(object):
         return revs[1:]
 
 
+class HG(object):
+    def __init__(self, url, work_path):
+        self.url = url
+        self.work_path = work_path
+
+
+    def clone(self):
+        """hg clone"""
+        if not os.path.exists(self.work_path):
+            subprocess.call(['hg', 'clone', self.url, self.work_path])
+
+
+    def export(self, rev_num, dst_path):
+        if os.path.exists(dst_path):
+            shutil.rmtree(dst_path)
+        cmd = ['hg', 'archive', '-R', self.work_path,
+                                '-r', rev_num, dst_path]
+        subprocess.call(cmd)
+
+    def pull(self):
+        subprocess.call(['hg', 'pull', '-R', self.work_path, self.url])
+
+
+    def get_new_revisions(self, from_rev):
+        # first update working copy
+        self.pull()
+        cmd = ['hg', 'log',
+                            '-r', '%s:tip' % from_rev,
+                            '-R', self.work_path]
+        log_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        out = log_proc.communicate()[0]
+        revs = []
+        for line in out.splitlines():
+            if line.startswith('changeset'):
+                # changset:  10:bafsafasdfa 
+                revs.append(line.split()[1].split(':')[0])
+        # exclude old tip/head
+        return revs[1:]
+
 
 def get_vcs(vcs_name, url, work_path):
     """return a VCS object"""
     vcs_map = {'svn': SVN,
-               'bzr': BZR}
+               'bzr': BZR,
+               'hg': HG}
     return vcs_map[vcs_name](url, work_path)
