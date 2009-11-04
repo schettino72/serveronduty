@@ -1,5 +1,5 @@
 from sqlalchemy import Table, Column, ForeignKey
-from sqlalchemy import String, Integer, Text, DateTime, Interval
+from sqlalchemy import String, Integer, Text, DateTime, Float
 from sqlalchemy.orm import mapper, relation
 from websod.utils import metadata
 
@@ -14,7 +14,7 @@ integration_table = Table(
     Column('result', String(20)),
     Column('log', Text()), # if no tests can be executed, a log is generated about it
     Column('started', DateTime()),
-    Column('elapsed', Interval()),
+    Column('elapsed', Float()), # time in seconds
     )
 
 
@@ -27,7 +27,7 @@ job_table = Table(
     Column('result', String(20)),
     Column('log', Text()),
     Column('started', DateTime()),
-    Column('elapsed', Interval()),
+    Column('elapsed', Float()), # time in seconds
     )
 
 

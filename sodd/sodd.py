@@ -69,10 +69,12 @@ def save_integration(cursor, source, revision, machine):
 
 def save_job(cursor, result, type_, integration_id):
     for row in result:
-        cursor.execute('''INSERT INTO job (name, integration_id, type, result, log, started, elapsed)
+        cursor.execute('''
+            INSERT INTO job (name, integration_id, type, result,
+                             log, started, elapsed)
             VALUES (?,?,?,?,?,?,?)''',
-            (row['name'], integration_id, type_,
-            row['result'],row['err']+row['out'],row['started'],row['elapsed']))
+            (row['name'], integration_id, type_, row['result'],
+             row['err']+row['out'],row['started'],row['elapsed']))
     cursor.connection.commit()
 
 
@@ -136,7 +138,7 @@ def main(project):
         for task in project['tasks']:
             json_result = doit_unstable_integration(integration_path, task)
             #result = simplejson.loads(json_result)
-            save_job(conn.cursor(), json_result, integration_id, task)
+            save_job(conn.cursor(), json_result, task, integration_id)
             conn.commit()
         print "finished integration %s" % integrate_rev
 
