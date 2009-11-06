@@ -9,9 +9,6 @@ from datetime import timedelta, datetime
 
 
 
-
-
-@expose('/')
 def home(request):
     # show results from last 3 days
     integrations_from = datetime.now() + timedelta(days=-3)
