@@ -32,7 +32,12 @@ def doit_unstable_integration(base_path, task_name):
         run_p = subprocess.Popen((run_cmd % (dodo, task_name)).split(),
                                  stdout=subprocess.PIPE)
         output = run_p.communicate()[0]
-        try_results = simplejson.loads(output)
+        try:
+            try_results = simplejson.loads(output)
+        except ValueError, ve:
+            print "JSON loading failed: " + output
+            raise
+        
         added_something = False
         for res in try_results:
             if res['result'] in ('up-to-date', 'ignore'):
