@@ -1,7 +1,7 @@
 from sqlalchemy import Table, Column, ForeignKey
 from sqlalchemy import String, Integer, Text, DateTime, Float
 from sqlalchemy.orm import mapper, relation
-from websod.utils import metadata
+from websod.utils import metadata, session
 
 
 
@@ -46,6 +46,20 @@ class Integration(object):
         return '<Integration (%s)%s - %s:%s>' % (
             self.id, self.machine, self.source, self.revision)
 
+    def calculate_result(self):
+        result = "success" # optimistic
+        non_success = session.query(Job).filter(Job.integration_id==self.id).\
+            filter(Job.result!="success")
+        for job in non_success:
+            # check if any of the entries for this job was successful
+            job_results = session.query(Job).filter(Job.integration_id==self.id).\
+                filter(Job.name==job.name).filter(Job.result=='success').all()
+            if job_results:
+                result = 'unstable'
+            else:
+                result = 'error'
+                break
+        self.result = result
 
 
 class Job(object):

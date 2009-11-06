@@ -51,11 +51,13 @@ class BZR(object):
 
     def clone(self):
         """SVN checkout"""
+        print "bzr cloning, ", self.url, self.work_path
         if not os.path.exists(self.work_path):
             subprocess.call(['bzr', 'branch', self.url, self.work_path])
 
 
     def export(self, rev_num, dst_path):
+        print "bzr exporting..."
         if os.path.exists(dst_path):
             shutil.rmtree(dst_path)
         subprocess.call(['bzr', 'export', '--revision=%s' % rev_num,
@@ -63,16 +65,20 @@ class BZR(object):
 
 
     def pull(self):
+        print "bzr pulling..."
         subprocess.call(['bzr', 'pull', '--directory=%s' % self.work_path])
 
 
     def get_new_revisions(self, from_rev):
         # first update working copy
         self.pull()
+        print "getting log"
         cmd = ['bzr', 'log', '--line', '--forward',
                '--revision=%s..'%from_rev, self.work_path]
+        print cmd
         log_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         out = log_proc.communicate()[0]
+        print "bzr log, =>\n", out
         revs = []
         for line in out.splitlines():
             # 174: eduardo 2009-10-30 xxx yyy zzz
