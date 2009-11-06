@@ -4,13 +4,16 @@
 <head>
   <title>ServerOnDuty</title>
   <link rel="stylesheet" type="text/css" href="${url_for('static', file='style.css') }">
+
 </head>
 
 <body>
   <div><span class="logo_text">ServerOnDuty</span></div>
   <div class="middle">
     <div class="left_menu">
+      <%doc>
       <a href="${ url_for('home')}">Home</a>
+      </%doc>
       <a href="${ url_for('integration_list') }">Integrations</a><br/>
     </div>
     <div class="content">${next.body()}</div>

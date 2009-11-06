@@ -1,15 +1,28 @@
 <%inherit file="layout.html"/>
 
 <p>${integration.source} @ ${integration.machine}</p>
-<h2>${integration.revision}</h2>
+<h2>Revision: ${integration.revision}</h2>
 
-${integration.result}
+Result: ${integration.result} <br/>
 
-${integration.started}
+Start time: ${integration.started} <br/>
 
+Elapsed time: ${integration.elapsed} <br/>
 
+<br/>
+<span class="failed">Failed</span> jobs ran in this integration:
 <ul>
 %for job in integration.jobs:
-   <li class=${job.result}>${job.name}</li>
+    %if job.result == 'failed':
+        <li class=${job.result}>${job.id} - ${job.name}</li>
+    %endif
+%endfor
+</ul>
+<span class="success">Succeded</span> jobs ran in this integration:
+<ul>
+%for job in integration.jobs:
+    %if job.result == 'success':
+        <li class=${job.result}><a href="/job/${job.id}">${job.name}</a></li>
+    %endif
 %endfor
 </ul>

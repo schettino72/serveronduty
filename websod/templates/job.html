@@ -1,0 +1,12 @@
+<%inherit file="layout.html"/>
+
+<h2>Job Id: ${job.id} - ${job.name}</h2>
+
+Result: <span class="${job.result}">${job.result}</span><br/>
+Type: ${job.type}<br/>
+Elapsed time: ${job.elapsed}<br/>
+
+Job log:<br/>
+<div>
+${job.log}
+</div>

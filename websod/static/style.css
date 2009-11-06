@@ -51,6 +51,9 @@ h2 {
 }
 /*-------------------------------*/
 
+.failed {
+    color: red;
+}
 
 
 .success_tablerow {

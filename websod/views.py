@@ -6,9 +6,6 @@ from websod.models import Integration, Job
 
 from datetime import timedelta, datetime
 
-
-
-
 def home(request):
     # show results from last 3 days
     integrations_from = datetime.now() + timedelta(days=-3)
@@ -19,18 +16,23 @@ def home(request):
     return serve_template('home.html', latest_integrations=latest_integrations)
 
 
-@expose('/integration/')
-def integration_list(request):
-    integrations = session.query(Integration).all()
-    for integ in integrations:
-        if not integ.result:
-            integ.calculate_result()
-    return serve_template('integration_list.html', integrations=integrations)
-
-
 @expose('/integration/<int:id>')
 def integration(request, id):
     integration = session.query(Integration).get(id)
     return serve_template('integration.html', integration=integration)
 
+@expose('/')
+@expose('/integration/')
+def integration_list(request):
+    integrations = session.query(Integration).order_by(Integration.started.desc()).all()
+    for integ in integrations:
+        if not integ.result:
+            integ.calculate_result()
+
+    return serve_template('integration_list.html', integrations=integrations)
+
+@expose('/job/<int:id>')
+def job(request, id):
+    the_job = session.query(Job).get(id)
+    return serve_template('job.html', job=the_job)
 
