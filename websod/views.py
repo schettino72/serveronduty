@@ -6,7 +6,6 @@ from websod.models import Integration
 
 from datetime import timedelta, datetime
 
-@expose('/')
 def home(request):
     # show results from last 3 days
     integrations_from = datetime.now() + timedelta(days=-3)
@@ -23,6 +22,7 @@ def integration(request, id):
     return serve_template('integration.html', integration=integration)
 
 
+@expose('/')
 @expose('/integration/')
 def integration_list(request):
     integrations = session.query(Integration).all()
