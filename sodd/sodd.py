@@ -110,8 +110,17 @@ def loop_vcs(code, start_from, integrate_list, new_event):
 def main(project):
 
     conn = sqlite3.connect("../sod.db")
+    
+    #TODO: maybe it would be good to have a configuration entry for this
     base_path = os.path.abspath(__file__ + '/../pool/')
-
+    #if pool is an existing file, that is an error
+    if os.path.isfile(base_path):
+        raise Exception("pool exists and is a file")
+    #if the directory does not exist create it
+    if not os.path.isdir(base_path):
+        os.mkdir(base_path)
+    
+    
     # list of integrations to be processed
     integrate_list = []
 
