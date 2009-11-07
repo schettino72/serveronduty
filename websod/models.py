@@ -15,6 +15,8 @@ integration_table = Table(
     Column('log', Text()), # if no tests can be executed, a log is generated about it
     Column('started', DateTime()),
     Column('elapsed', Float()), # time in seconds
+    Column('committer', String(40)), # the person who created this revision
+    Column('comment', String(1024)), # the commit comment for the revision, length should be considered
     )
 
 
@@ -33,7 +35,7 @@ job_table = Table(
 
 class Integration(object):
     def __init__(self, source='', revision='', machine='', result='',
-                 log='', started=None ,elapsed=None):
+                 log='', started=None ,elapsed=None, committer='', comment=''):
         self.source = source
         self.revision = revision
         self.machine = machine
@@ -41,6 +43,8 @@ class Integration(object):
         self.log = log
         self.started = started
         self.elapsed = elapsed
+        self.committer = committer
+        self.comment = comment
 
     def __repr__(self):
         return '<Integration (%s)%s - %s:%s>' % (

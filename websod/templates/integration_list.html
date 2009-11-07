@@ -6,14 +6,18 @@
   <tr>
     <th>Revision</th>
     <th>Status</th>
+    <th>Committer</th>
     <th>Start date</th>
+    <th>Commit comment</th>
   </tr>
 
 %for intg in integrations:
   <tr class="${intg.result}_tablerow">
     <td><a href="${ url_for('integration', id=intg.id) }">${intg.revision}</a></td>
     <td>${intg.result}</td>
+    <td>${intg.committer}</td>
     <td>${intg.started}</td>
+    <td><pre>${intg.comment}</pre></td>
   </tr>
 %endfor
 

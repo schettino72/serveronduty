@@ -68,10 +68,10 @@ def doit_forget(base_path):
     subprocess.Popen((forget_cmd % base_path).split()).communicate()
 
 
-def save_integration(cursor, source, revision, machine, started):
+def save_integration(cursor, source, revision, machine, started, committer, comment):
     cursor.execute('''
-        INSERT INTO integration (source, revision, machine, started)
-        VALUES (?,?,?,?)''', (source, revision, machine, started))
+        INSERT INTO integration (source, revision, machine, started, committer, comment)
+        VALUES (?,?,?,?,?,?)''', (source, revision, machine, started, committer, comment))
     cursor.connection.commit()
     return cursor.lastrowid
 
@@ -97,7 +97,8 @@ def loop_vcs(code, start_from, integrate_list, new_event):
     last_rev = start_from
     while True:
         revs = code.get_new_revisions(last_rev)
-        print "got revs: %s" % ", ".join(revs)
+        for a_rev in revs:
+            print "got rev: %s" % a_rev['revision']
 
         if(revs):
             integrate_list.extend(revs)
@@ -145,21 +146,24 @@ def main(project):
             while not newIntegration.isSet():
                 newIntegration.wait(1)
 
+        #integrate rev is a dictionary to describe the revision
         integrate_rev = integrate_list.pop(0)
-        print "starting integration %s" % integrate_rev
+        
+        print "starting integration %s" % integrate_rev['revision']
         started_on = time.time()
         started = datetime.datetime.utcfromtimestamp(started_on)
 
         # export revision to be tested
-        integration_path = base_path + '/' + integrate_rev
-        code.export(integrate_rev, integration_path)
+        integration_path = base_path + '/' + integrate_rev['revision']
+        code.export(integrate_rev['revision'], integration_path)
         # FIXME NBET stuff
         # shutil.copy(base_path + "/dodo.py", integration_path + "/dodo.py")
         # shutil.copy(integration_path + '/local_config.py.DEVELOPER',
         #             integration_path + '/local_config.py')
 
         integration_id = save_integration(conn.cursor(), project['url'],
-                                          integrate_rev, 'kevin', started)
+                                          integrate_rev['revision'], 'kevin', started,
+                                          integrate_rev['committer'], integrate_rev['comment'])
 
         for task in project['tasks']:
             json_result = doit_unstable_integration(integration_path, task)

@@ -1,8 +1,22 @@
-"""Interface to VCS with some basic operations"""
+"""Interface to VCS with some basic operations
+
+Operations:
+
+-get_new_revisions: return the description information of
+revisions newer than the working copy
+@return: a dictionary or relevant values like:
+{ 'revision': '174'
+  'committer': 'somebody'
+  'comment': 'commit message'} 
+
+"""
 
 import os
 import shutil
 import subprocess
+
+#TODO: it would not be a bad idea to describe the SCM interface we would like to support
+
 
 
 class SVN(object):
@@ -37,7 +51,8 @@ class SVN(object):
             if line[0] != 'r':
                 continue
             # r12345 | john | 2009-11-03 00:09:25 +0800 (Tue, 03 Nov 2009)
-            revs.append(line.split()[0][1:]) # get first word and remove 'r'
+            revs.append(
+                { 'revision': line.split()[0][1:]}) # get first word and remove 'r'
         # exclude old tip/head
         return revs[1:]
 
@@ -81,8 +96,17 @@ class BZR(object):
         print "bzr log, =>\n", out
         revs = []
         for line in out.splitlines():
+            #TODO: bzr log --line show only the top line of commit message, maybe the whole logic should be reconsidered a little
+            #with maxsplit, top line comment will be the value of the last element
+            line_split = line.split(" ", 3)
+            
             # 174: eduardo 2009-10-30 xxx yyy zzz
-            revs.append(line.split()[0][:-1]) # get first word and remove ':'
+            revs.append(
+                { 'revision': line_split[0][:-1], # get first word and remove ':'
+                  'committer':  line_split[1],
+                  'comment': line_split[3]
+                })
+                        
         # exclude old tip/head
         return revs[1:]
 
@@ -122,7 +146,8 @@ class HG(object):
         for line in out.splitlines():
             if line.startswith('changeset'):
                 # changset:  10:bafsafasdfa 
-                revs.append(line.split()[1].split(':')[0])
+                revs.append(
+                    { 'revision': line.split()[1].split(':')[0]})
         # exclude old tip/head
         return revs[1:]
 
