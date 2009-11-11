@@ -108,10 +108,10 @@ def loop_vcs(code, start_from, integrate_list, new_event):
         time.sleep(20)
 
 
-def main(project):
-
+def main(project_file):
+    project = yaml.load(open(project_file))
     conn = sqlite3.connect("../sod.db")
-    
+
     #TODO: maybe it would be good to have a configuration entry for this
     base_path = os.path.abspath(__file__ + '/../pool/')
     #if pool is an existing file, that is an error
@@ -120,8 +120,7 @@ def main(project):
     #if the directory does not exist create it
     if not os.path.isdir(base_path):
         os.mkdir(base_path)
-    
-    
+
     # list of integrations to be processed
     integrate_list = []
 
@@ -148,7 +147,7 @@ def main(project):
 
         #integrate rev is a dictionary to describe the revision
         integrate_rev = integrate_list.pop(0)
-        
+
         print "starting integration %s" % integrate_rev['revision']
         started_on = time.time()
         started = datetime.datetime.utcfromtimestamp(started_on)
@@ -174,10 +173,3 @@ def main(project):
         elapsed = time.time() - started_on
         update_integration_elapsed(conn.cursor(), integration_id, elapsed)
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv)!= 2:
-        print "usage: python sodd.py <project.json>"
-    project_file = open(sys.argv[1])
-    project = yaml.load(project_file)
-    main(project)
