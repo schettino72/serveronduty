@@ -19,15 +19,29 @@ def home(request):
 @expose('/integration/<int:id>')
 def integration(request, id):
     integration = session.query(Integration).get(id)
-    return serve_template('integration.html', integration=integration)
+    tests = {}
+    jobs = session.query(Job).filter(Job.integration_id==id).\
+        order_by(Job.name)
+    for jb in jobs:
+        if jb.name not in tests:
+            tests[jb.name] = jb
+            continue
+        if jb.result != tests[jb.name].result:
+            if jb.result == 'fail':
+                tests[jb.name] = jb #display the fail log for unstable ones
+            tests[jb.name].result = 'unstable'
+    return serve_template('integration.html', integration=integration,
+                          jobs=sorted(tests.values(), key=lambda k: k.name))
+
 
 @expose('/')
 @expose('/integration/')
 def integration_list(request):
     integrations = session.query(Integration).order_by(Integration.started.desc()).all()
     for integ in integrations:
-        if not integ.result:
-            integ.calculate_result()
+# this might give a wrong result if page is viewed before the tests finishes running
+#        if not integ.result:
+        integ.calculate_result()
 
     return serve_template('integration_list.html', integrations=integrations)
 
