@@ -56,7 +56,7 @@ job_table = Table(
 
 class SourceTreeRoot(object):
     
-    def __init(self, source_location=''):
+    def __init__(self, source_location=''):
         self.source_location = source_location
     
 class Integration(object):
@@ -92,12 +92,12 @@ class Integration(object):
 class SoddInstance(object):
     
     def __init__(self, name='', machine=''):
-        slef.name = name
+        self.name = name
         self.machine = machine
         
     def __repr__(self):
         return '<SoddInstance %s (%s)>' % (self.name, self.machine)
-
+    
 class JobGroup(object):
     
     def __init__(self, started=None, elapsed=None, state='', result='', log='', ):
@@ -112,13 +112,14 @@ class JobGroup(object):
 
 class Job(object):
     def __init__(self, name, type='', result='', log='',
-                 started=None, elapsed=None):
+                 started=None, elapsed=None, state=''):
         self.name = name
         self.type = type
         self.result = result
         self.log = log
         self.started = started
         self.elapsed = elapsed
+        self.state = state
 
     def __repr__(self):
         return '<Job %s>' % self.name

@@ -4,19 +4,19 @@
 
 <table>
   <tr>
-    <th>Revision</th>
+    <th>Version</th>
     <th>Status</th>
-    <th>Committer</th>
-    <th>Start date</th>
+    <th>State</th>
+    <th>Owner</th>
     <th>Commit comment</th>
   </tr>
 
 %for intg in integrations:
   <tr class="${intg.result}_tablerow">
-    <td><a href="${ url_for('integration', id=intg.id) }">${intg.revision}</a></td>
+    <td><a href="${ url_for('integration', id=intg.id) }">${intg.version}</a></td>
     <td>${intg.result}</td>
-    <td>${intg.committer}</td>
-    <td>${intg.started}</td>
+    <td>${intg.state}</td>
+    <td>${intg.owner}</td>
     <td><pre>${intg.comment}</pre></td>
   </tr>
 %endfor
