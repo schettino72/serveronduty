@@ -173,3 +173,9 @@ def main(project_file):
         elapsed = time.time() - started_on
         update_integration_elapsed(conn.cursor(), integration_id, elapsed)
 
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) != 2:
+        print 'usage: python sodd.py <project.yaml>'
+    proj_file = sys.argv[1]
+    main(proj_file)
