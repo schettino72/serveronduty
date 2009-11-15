@@ -1,30 +1,17 @@
 <%inherit file="layout.html"/>
 
-<p>${integration.source} @ ${integration.machine}</p>
-<h2>Revision: ${integration.revision}</h2>
+<h2>Version: ${integration.version}</h2>
+
+Source location: ${integration.source_tree_root.source_location}
 
 Result: ${integration.result} <br/>
-Committer: ${integration.committer} <br/>
+Owner: ${integration.owner} <br/>
 Comment: <pre>${integration.comment}</pre><br/>
 
-Start time: ${integration.started} <br/>
-
-Elapsed time: ${integration.elapsed} <br/>
-
 <br/>
-<span class="failed">Failed</span> jobs ran in this integration:
+<span>Job groups</span>
 <ul>
-%for job in integration.jobs:
-    %if job.result == 'fail':
-        <li class=${job.result}><a href="/job/${job.id}">${job.name}</a></li>
-    %endif
-%endfor
-</ul>
-<span class="success">Succeded</span> jobs ran in this integration:
-<ul>
-%for job in integration.jobs:
-    %if job.result == 'success':
-        <li class=${job.result}><a href="/job/${job.id}">${job.name}</a></li>
-    %endif
+%for jg in integration.jobgroups:
+    <li><a href="/jobgroup/${jg.id}">${jg.id}</a> ${jg.state} ${jg.result}</li>
 %endfor
 </ul>

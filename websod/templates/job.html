@@ -2,11 +2,12 @@
 
 <h2>Job Id: ${job.id} - ${job.name}</h2>
 
+State: ${job.state}<br/>
 Result: <span class="${job.result}">${job.result}</span><br/>
 Type: ${job.type}<br/>
 Elapsed time: ${job.elapsed}<br/>
 
 Job log:<br/>
 <pre>
-${job.log}
+${job.log | h}
 </pre>

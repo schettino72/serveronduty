@@ -25,11 +25,16 @@ def make_cherryserver(hostname="localhost", port=9000):
             server.stop()
     return start_server
 
+def start_web_server(hostname, port):
+    """This function is uesd for daemon mode.
+    """
+    wsgiserver.CherryPyWSGIServer((hostname, port), make_app()).start()
 
-action_cherryserver = make_cherryserver()
-action_runserver = script.make_runserver(make_app, use_reloader=True,
-                                         use_debugger=True)
-action_shell = script.make_shell(make_shell)
-action_initdb = lambda: make_app().init_database()
+if __name__ == "__main__":
+    action_cherryserver = make_cherryserver()
+    action_runserver = script.make_runserver(make_app, use_reloader=True,
+                                             use_debugger=True)
+    action_shell = script.make_shell(make_shell)
+    action_initdb = lambda: make_app().init_database()
 
-script.run()
+    script.run()
