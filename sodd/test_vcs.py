@@ -19,7 +19,7 @@ def pytest_funcarg__testbin(request):
 
 def pytest_generate_tests(metafunc):
     if TestVcs == metafunc.cls:
-        for vcs_ in (vcs.HG, vcs.SVN, vcs.BZR):
+        for vcs_ in (vcs.HG, vcs.SVN, vcs.SVN_NoExport, vcs.BZR):
             metafunc.addcall(id=vcs_.__name__,param=vcs_)
 
 commit_2_msg = """commit no 2

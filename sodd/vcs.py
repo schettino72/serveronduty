@@ -7,6 +7,7 @@ tests make sure all implementations follow the same API.
 import os
 import shutil
 import subprocess
+import threading
 from xml.dom import minidom
 
 def check_call_get(cmd):
@@ -14,7 +15,7 @@ def check_call_get(cmd):
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     out = proc.communicate()[0]
     if proc.returncode:
-        raise subprocess.CalledProcessError(proc.returncode, cmd)
+        raise Exception(proc.returncode, cmd)
     return out
 
 
@@ -243,6 +244,35 @@ class SVN(object):
         return sorted(revs, key=lambda k: int(k['revision']))[1:]
 
 
+class SVN_NoExport(SVN):
+    """just copy file instead of using "svn export" (much faster)
+    this must be the only process maniputing the working,
+    it is thread-safe.
+    """
+    lock = threading.Lock()
+
+    def archive(self, rev_num, dst_path):
+        if os.path.exists(dst_path):
+            shutil.rmtree(dst_path)
+        try:
+            self.lock.acquire()
+            check_call_get(['svn', 'update', '--revision', rev_num,
+                            self.work_path])
+            check_call_get(['cp', '-r', self.work_path, dst_path])
+            os.system('find %s -name ".svn" -exec rm -rf {} \;' % dst_path)
+
+        finally:
+            self.lock.release()
+
+    def get_new_revisions(self, from_rev):
+        try:
+            self.lock.acquire()
+            return SVN.get_new_revisions(self, from_rev)
+        finally:
+            self.lock.release()
+
+
+
 # tested with bzr 2.0.0
 class BZR(object):
     """interface to BZR (bazaar)"""
@@ -355,7 +385,7 @@ class BZR(object):
 
 def get_vcs(vcs_name, url, work_path):
     """return a VCS object"""
-    vcs_map = {'svn': SVN,
+    vcs_map = {'svn': SVN_NoExport,
                'bzr': BZR,
                'hg': HG}
     return vcs_map[vcs_name](url, work_path)
