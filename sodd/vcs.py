@@ -368,7 +368,7 @@ class BZR(object):
         for line in out.splitlines():
             if first:
                 # 2 Eduardo Schettino 2008-02-27
-                revision, commiter = line.strip().rsplit(' ',1)[0].split(' ',1)
+                revision, commiter = line.rsplit(None,1)[0].split(None,1)
                 first = False
                 continue
             if line:
