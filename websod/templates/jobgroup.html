@@ -1,0 +1,38 @@
+<%inherit file="layout.html"/>
+
+<h2>Job group: ${jobgroup.id}</h2>
+
+Started: ${jobgroup.started}
+Elapsed: ${jobgroup.elapsed} <br/>
+
+State: ${jobgroup.state} <br/>
+Result: ${jobgroup.result} <br/>
+Log: <pre>${jobgroup.log}</pre><br/>
+
+<span class="failed">Failed</span>
+<ul>
+%for job in jobgroup.jobs:
+    %if job.result == 'fail':
+        <li class=${job.result}><a href="/job/${job.id}">${job.name}</a></li>
+    %endif
+%endfor
+</ul>
+
+<br/>
+<span class="failed">Unstable</span>
+<ul>
+%for job in jobgroup.jobs:
+    %if job.result == 'unstable':
+        <li class=${job.result}><a href="/job/${job.id}">${job.name}</a></li>
+    %endif
+%endfor
+</ul>
+
+<span class="success">Succeded</span>
+<ul>
+%for job in jobgroup.jobs:
+    %if job.result == 'success':
+        <li class=${job.result}><a href="/job/${job.id}">${job.name}</a></li>
+    %endif
+%endfor
+</ul>
