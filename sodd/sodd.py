@@ -37,7 +37,7 @@ def doit_unstable_integration(base_path, task_name):
         except ValueError, ve:
             print "JSON loading failed: " + output
             raise
-        
+
         added_something = False
         for res in try_results:
             if res['result'] in ('up-to-date', 'ignore'):
@@ -103,7 +103,7 @@ def loop_vcs(code, start_from, integrate_list, new_event):
         if(revs):
             integrate_list.extend(revs)
             new_event.set()
-            last_rev = integrate_list[-1]
+            last_rev = integrate_list[-1]['revision']
         #time.sleep(10*60)
         time.sleep(20)
 
@@ -154,7 +154,7 @@ def main(project_file):
 
         # export revision to be tested
         integration_path = base_path + '/' + integrate_rev['revision']
-        code.export(integrate_rev['revision'], integration_path)
+        code.archive(integrate_rev['revision'], integration_path)
         # FIXME NBET stuff
         # shutil.copy(base_path + "/dodo.py", integration_path + "/dodo.py")
         # shutil.copy(integration_path + '/local_config.py.DEVELOPER',
@@ -173,3 +173,9 @@ def main(project_file):
         elapsed = time.time() - started_on
         update_integration_elapsed(conn.cursor(), integration_id, elapsed)
 
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) != 2:
+        print 'usage: python sodd.py <project.yaml>'
+    proj_file = sys.argv[1]
+    main(proj_file)

@@ -1,3 +1,8 @@
+"""
+These codes are copied from the the internet, with some small changes.
+You can check here to get more details:
+http://www.jejik.com/articles/2007/02/a_simple_unix_linux_daemon_in_python/
+"""
 #!/usr/bin/env python
 
 import sys, os, time, atexit
