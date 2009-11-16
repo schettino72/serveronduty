@@ -1,7 +1,5 @@
 """
-These codes are copied from the the internet, with some small changes.
-You can check here to get more details:
-http://www.jejik.com/articles/2007/02/a_simple_unix_linux_daemon_in_python/
+copied from: http://www.jejik.com/articles/2007/02/a_simple_unix_linux_daemon_in_python/
 """
 #!/usr/bin/env python
 
@@ -17,6 +15,8 @@ class Daemon:
     def __init__(self, pidfile, dir_='/', stdin='/dev/null', stdout='/dev/null',
                                                              stderr='/dev/null'):
         self.stdin = stdin
+        # because some codes in sodd use the relative path, i need this daemon
+        # working under specific directory
         self.dir_ = dir_
         self.stdout = stdout
         self.stderr = stderr
