@@ -111,18 +111,23 @@ class HG(object):
         """
         # first update working copy
         self.pull()
+        template = """<logentry revision="{rev}">
+                      <author>{author|escape}</author>
+                      <msg>{desc|escape}</msg>
+                      </logentry>\n"""
         cmd = ['hg', 'log', '--rev', '%s:' % from_rev,
                '--repository', self.work_path,
-               '--template', '{rev}:{author}:{desc}\n']
+               '--template', template]
         out = check_call_get(cmd)
         revs = []
-        # exclude first line (old tip/head)
-        for line in out.splitlines()[1:]:
-            rev, author, desc = line.split(':', 2)
-            revs.append({'revision': rev,
+        dom = minidom.parseString("<root>%s</root>" % out)
+        for logentry in dom.getElementsByTagName('logentry'):
+            author = logentry.getElementsByTagName('author')[0].firstChild.data
+            msg = logentry.getElementsByTagName('msg')[0].firstChild.data
+            revs.append({'revision': logentry.getAttribute('revision'),
                          'committer': author,
-                         'comment': desc})
-        return revs
+                         'comment': msg})
+        return sorted(revs, key=lambda k: int(k['revision']))[1:]
 
 
 # tested with svn 1.6.5
@@ -325,20 +330,26 @@ class BZR(object):
         # first update working copy
         self.pull()
         cmd = ['bzr', 'log', '--revision=%s..' % from_rev,
-               '--forward', '--line', self.work_path]
+               '--forward', '--short', self.work_path]
         out = check_call_get(cmd)
         revs = []
-        for line in out.splitlines()[1:]:
-            # TODO: bzr log --line show only the top line of commit message
-            # FIXME: what if name contains space?
-            line_split = line.split(" ", 3)
-            # 174: eduardo 2009-10-30 xxx yyy zzz
-            revs.append(
-                { 'revision': line_split[0][:-1], # get first word and remove ':'
-                  'committer':  line_split[1],
-                  'comment': line_split[3]
-                })
-        return revs
+        first = True
+        msg = []
+        for line in out.splitlines():
+            if first:
+                # 2 Eduardo Schettino 2008-02-27
+                revision, commiter = line.strip().rsplit(' ',1)[0].split(' ',1)
+                first = False
+                continue
+            if line:
+                msg.append(line.strip())
+            else:
+                revs.append({'revision': revision,
+                             'committer': commiter,
+                             'comment': "\n".join(msg)})
+                first = True
+                msg = []
+        return revs[1:]
 
 
 

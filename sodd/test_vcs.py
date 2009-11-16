@@ -22,6 +22,11 @@ def pytest_generate_tests(metafunc):
         for vcs_ in (vcs.HG, vcs.SVN, vcs.BZR):
             metafunc.addcall(id=vcs_.__name__,param=vcs_)
 
+commit_2_msg = """commit no 2
+has more than
+
+one line and a blank line"""
+
 # create repo
 def pytest_funcarg__repo(request):
     # request.param is the vcs class to be used
@@ -38,7 +43,7 @@ def pytest_funcarg__repo(request):
         # commit 1 - file2
         subprocess.call(['echo', 'hello'], stdout=open(repo_path + '/file2','w'))
         repo.add(repo_path + '/file2')
-        repo.commit('commit no 2')
+        repo.commit(commit_2_msg)
         return repo
 
     def rm_repo(repo):
@@ -114,7 +119,7 @@ class TestVcs(object):
         new_revs = clone.get_new_revisions(str(0 + repo.rev_zero))
         assert str(1 + repo.rev_zero) == new_revs[0]['revision']
         assert "committer" in new_revs[0]
-        assert 'commit no 2' == new_revs[0]['comment']
+        assert commit_2_msg == new_revs[0]['comment']
         assert str(2 + repo.rev_zero) == new_revs[1]['revision']
         assert 2 == len(new_revs)
 
