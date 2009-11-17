@@ -37,11 +37,12 @@ chdir_ = '%s/sodd/' % base_dir
 sodd_pid_file = '%s/sodd.pid' % base_dir
 webserver_pid_file = '%s/webserver.pid' % base_dir
 # can set output despretor to '/dev/stdout' or '/dev/stderr' to debug
-stdout_ = '/dev/null'
-stderr_ = '/dev/null'
-
+#stdout_ = '/dev/null'
+#stderr_ = '/dev/null'
+stdout_ = '/dev/stdout'
+stderr_ = '/dev/stderr'
 sod_d = SodDaemon(sodd_pid_file, dir_=chdir_, stdout=stdout_, stderr=stderr_)
-webserver_d = WebserverDaemon(webserver_pid_file, dir_=chdir_,
+webserver_d = WebserverDaemon(webserver_pid_file, dir_=base_dir,
                                         stdout=stdout_, stderr=stderr_)
 
 def start_sodd(proj_file):

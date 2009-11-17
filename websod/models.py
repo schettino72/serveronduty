@@ -17,7 +17,7 @@ integration_table = Table(
     Column('result', String(20)),
     Column('owner', String(40)), # the person who created this revision or working copy owner
     Column('comment', String(1024)), # the commit comment for the revision, length should be considered
-    Column('soure_tree_root_id', Integer, ForeignKey('source_tree_root.id')),
+    Column('source_tree_root_id', Integer, ForeignKey('source_tree_root.id')),
     )
 
 sodd_instance_table = Table(

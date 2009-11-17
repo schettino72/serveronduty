@@ -39,7 +39,7 @@ def doit_unstable_integration(base_path, task_name):
             raise
 
         added_something = False
-        for res in try_results:
+        for res in try_results['tasks']:
             if res['result'] in ('up-to-date', 'ignore'):
                 continue
             added_something = True
@@ -68,30 +68,64 @@ def doit_forget(base_path):
     subprocess.Popen((forget_cmd % base_path).split()).communicate()
 
 
-def save_integration(cursor, source, revision, machine, started, committer, comment):
+def save_integration(cursor, version, state, result, owner, comment,
+                                                                source_tree_root_id):
     cursor.execute('''
-        INSERT INTO integration (source, revision, machine, started, committer, comment)
-        VALUES (?,?,?,?,?,?)''', (source, revision, machine, started, committer, comment))
+        INSERT INTO integration (version, state, result, owner, comment,
+                                source_tree_root_id) VALUES (?,?,?,?,?,?)''',
+                        (version, state, result, owner, comment, source_tree_root_id))
     cursor.connection.commit()
     return cursor.lastrowid
 
-
-def update_integration_elapsed(cursor, id, elapsed):
-    cursor.execute('''UPDATE integration SET elapsed=? WHERE id=?''',
-                   (elapsed, id))
+def update_integration(cursor, id_, result, state='finished'):
+    cursor.execute('''UPDATE integration SET state=?, result=? WHERE id=?''',
+                   (state, result, id_))
     cursor.connection.commit()
 
+def save_source_tree_root(cursor, source_location):
+    cursor.execute('''
+        INSERT INTO source_tree_root (source_location) VALUES (?)''',
+        (source_location,))
+    cursor.connection.commit()
+    return cursor.lastrowid
 
-def save_job(cursor, result, type_, integration_id):
+def save_sodd_instance(cursor, name, machine):
+    cursor.execute('''
+        INSERT INTO sodd_instance (name, machine) VALUES (?,?)''',
+        (name, machine))
+    cursor.connection.commit()
+    return cursor.lastrowid
+
+def save_job_group(cursor, started, elapsed, state, result, log, integration_id,
+                                                                sodd_instance_id):
+    cursor.execute('''
+        INSERT INTO job_group (started, elapsed, state, result,
+                     log, integration_id, sodd_instance_id) VALUES
+                     (?,?,?,?,?,?,?)''',
+        (started, elapsed, state, result, log, integration_id,
+                                                            sodd_instance_id))
+    cursor.connection.commit()
+    return cursor.lastrowid
+
+def update_job_group(cursor, id_, elapsed, result, log, state='finished'):
+    cursor.execute('''
+        UPDATE job_group SET elapsed=?, state=?, result=?, log=? WHERE
+                        id=?''', (elapsed, state, result, log, id_))
+    cursor.connection.commit()
+
+def save_job(cursor, result, type_, id_):
     for row in result:
         cursor.execute('''
-            INSERT INTO job (name, integration_id, type, result,
-                             log, started, elapsed)
-            VALUES (?,?,?,?,?,?,?)''',
-            (row['name'], integration_id, type_, row['result'],
-             row['err']+row['out'],row['started'],row['elapsed']))
+            INSERT INTO job (name, type, state, result, log, started, elapsed,
+                            create_status, introduced_result, job_group_id)
+            VALUES (?,?,?,?,?,?,?,?,?,?)''',
+            (row['name'], type_, 'finished', row['result'],
+             row['err']+row['out'],row['started'],row['elapsed'],
+             # I think create_status and introduced_result should be got from
+             # the output of DOIT. Here just set a default value for them
+             # temporarily
+             'create_status', True, id_))
     cursor.connection.commit()
-
 
 def loop_vcs(code, start_from, integrate_list, new_event):
     last_rev = start_from
@@ -112,8 +146,13 @@ def main(project_file):
     project = yaml.load(open(project_file))
     conn = sqlite3.connect("../sod.db")
 
+    ## register self in sodd_instance table
+    ## TODO seems need a rule to name sodd and machine 
+    instance_id = save_sodd_instance(conn.cursor(), 'SODD 1', 'qtest')
+
     #TODO: maybe it would be good to have a configuration entry for this
     base_path = os.path.abspath(__file__ + '/../pool/')
+
     #if pool is an existing file, that is an error
     if os.path.isfile(base_path):
         raise Exception("pool exists and is a file")
@@ -123,6 +162,9 @@ def main(project_file):
 
     # list of integrations to be processed
     integrate_list = []
+
+    # insert into source_location table
+    source_tree_id = save_source_tree_root(conn.cursor(), project['url'])
 
     code = vcs.get_vcs(project['vcs'], project['url'], 'trunk')
     code.clone()
@@ -147,8 +189,12 @@ def main(project_file):
 
         #integrate rev is a dictionary to describe the revision
         integrate_rev = integrate_list.pop(0)
-
         print "starting integration %s" % integrate_rev['revision']
+        integration_id = save_integration(conn.cursor(),
+                                 integrate_rev['revision'], 'running', 'unknown',
+                                 integrate_rev['committer'], integrate_rev['comment'],
+                                 source_tree_id)
+
         started_on = time.time()
         started = datetime.datetime.utcfromtimestamp(started_on)
 
@@ -160,18 +206,28 @@ def main(project_file):
         # shutil.copy(integration_path + '/local_config.py.DEVELOPER',
         #             integration_path + '/local_config.py')
 
-        integration_id = save_integration(conn.cursor(), project['url'],
-                                          integrate_rev['revision'], 'kevin', started,
-                                          integrate_rev['committer'], integrate_rev['comment'])
-
+        integration_result = 'success'
         for task in project['tasks']:
+            group_result = 'success'
+            group_id = save_job_group(conn.cursor(), started, 'unknown',
+                                'running', 'unknown', '', integration_id, instance_id)
+
             json_result = doit_unstable_integration(integration_path, task)
             #result = simplejson.loads(json_result)
-            save_job(conn.cursor(), json_result, task, integration_id)
-            conn.commit()
+            save_job(conn.cursor(), json_result, task, group_id)
+
+            # check result of this job group
+            for each in json_result:
+                if each['result'] != 'success':
+                    group_result = 'fail'
+                    integration_result = 'fail'
+                    break
+
+            elapsed = time.time() - started_on
+            update_job_group(conn.cursor(), group_id, elapsed, group_result, '')
+
         print "finished integration %s" % integrate_rev
-        elapsed = time.time() - started_on
-        update_integration_elapsed(conn.cursor(), integration_id, elapsed)
+        update_integration(conn.cursor(), integration_id, integration_result)
 
 if __name__ == "__main__":
     import sys
