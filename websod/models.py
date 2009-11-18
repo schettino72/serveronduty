@@ -13,7 +13,7 @@ integration_table = Table(
     'integration', metadata,
     Column('id', Integer, primary_key=True),
     Column('version', String(20)), # VCS revision number or working copy identifier
-    Column('state', String(10)),
+    Column('state', String(10)), #started/waiting/finished/running
     Column('result', String(20)),
     Column('owner', String(40)), # the person who created this revision or working copy owner
     Column('comment', String(1024)), # the commit comment for the revision, length should be considered
@@ -32,7 +32,7 @@ job_group_table = Table(
     Column('id', Integer, primary_key=True),
     Column('started', DateTime()),
     Column('elapsed', Float()), # time in seconds
-    Column('state', String(10)),
+    Column('state', String(10)), #started/waiting/finished/running
     Column('result', String(10)),
     Column('log', Text()),  # if no tests can be executed, a log is generated about it
     Column('integration_id', Integer, ForeignKey('integration.id')),
@@ -44,13 +44,13 @@ job_table = Table(
     Column('id', Integer, primary_key=True),
     Column('name', String(100)),
     Column('type', String(20)),
-    Column('state', String(10)),
+    Column('state', String(10)), #started/waiting/finished/running
     Column('result', String(20)),
     Column('log', Text()),
     Column('started', DateTime()),
     Column('elapsed', Float()), # time in seconds
-    Column('create_status', String(10)),
-    Column('introduced_result', Boolean()),
+    Column('create_status', String(10)), #calculated field, the job can be added, same or removed in this version/revision 
+    Column('introduced_result', Boolean()), #calculated field, the job result is new (true) or same (false) compared to the last version/revision
     Column('job_group_id', Integer, ForeignKey('job_group.id')),
     )
 

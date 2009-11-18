@@ -19,12 +19,12 @@ def home(request):
 
 @expose('/integration/<int:id>')
 def integration(request, id):
-    #maybe, there are no JobGroups for integration yet
+    # maybe, there are no JobGroups for integration yet
     integration = session.query(Integration).select_from(
                     join(SourceTreeRoot, Integration).outerjoin(JobGroup)).\
                     filter_by(id=id).one()
-    #we loaded eagerly all the necessary information into the integration 
-    #object
+    # we loaded eagerly all the necessary information into the integration 
+    # object
     tests = {}
     
 #    jobs = session.query(Job).filter(Job.integration_id==id).\
@@ -68,20 +68,20 @@ def add_testdata(request):
     
     sourceRoot = SourceTreeRoot('/trunk')
     
-    #a set of jobs to add to groups
+    # a set of jobs to add to groups
     
     job1 = Job("/test/file1.py", "unit", "success", 'log', None, None,'finished')
     job2 = Job("/ftest/ftest_file1.py", "ftest", "success", 'log', None, None,'finished')
     job3 = Job("/test/file2.py", "unit", "fail", 'log', None, None,'finished')
-    
-    #this will link different job groups to the same job object, but it is not 
-    #a problem for now
+    job4 = Job("/test/file3.py", "ftest", "unstable", 'log', None, None,'finished')
+    # this will link different job groups to the same job object, but it is not 
+    # a problem for now
     
     jobgroup_i1_1 = JobGroup(None, None, 'finished', 'success', 'log')
     jobgroup_i1_1.jobs = [job1, job2]
     jobgroup_i1_2 = JobGroup(None, None, 'finish', 'failed', 'log')
     i1 = Integration('20898','finished','fail', 'balazs', 'test comment')
-    jobgroup_i1_2.jobs = [job1, job3]
+    jobgroup_i1_2.jobs = [job1, job3, job4]
     i1.source_tree_root = sourceRoot
     i1.jobgroups = [jobgroup_i1_1, jobgroup_i1_2]
     
@@ -92,7 +92,7 @@ def add_testdata(request):
     i2.jobgroups = [jobgroup_i2_1, jobgroup_i2_2]
     session.add_all([i1,i2])
     session.commit()
-    #after commit, the ID's are updated for inserted objects
+    # after commit, the ID's are updated for inserted objects
     
-    #go to the integration list page
+    # go to the integration list page
     return integration_list(request)
