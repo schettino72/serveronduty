@@ -19,10 +19,11 @@ def home(request):
 
 @expose('/integration/<int:id>')
 def integration(request, id):
-    # maybe, there are no JobGroups for integration yet
-    integration = session.query(Integration).select_from(
-                    join(SourceTreeRoot, Integration).outerjoin(JobGroup)).\
-                    filter_by(id=id).one()
+
+    # use lazy loading of referenced object to SQLAlchemy to handle everything
+    integration = session.query(Integration).get(id)                
+                
+                    
     # we loaded eagerly all the necessary information into the integration 
     # object
     tests = {}
@@ -55,7 +56,7 @@ def integration_list(request):
 
 @expose('/jobgroup/<int:id>')
 def jobgroup(request, id):
-    the_jobgroup = session.query(JobGroup).select_from(outerjoin(JobGroup, Job)).filter_by(id=id).one()
+    the_jobgroup = session.query(JobGroup).get(id)
     return serve_template('jobgroup.html', jobgroup=the_jobgroup)
 
 @expose('/job/<int:id>')
@@ -66,6 +67,12 @@ def job(request, id):
 @expose('/testdata')
 def add_testdata(request):
     
+    print request.method
+    # do not support non-POST requests
+    if request.method != 'POST':
+        # TODO: maybe forward to an error page
+        raise NotFound()
+
     sourceRoot = SourceTreeRoot('/trunk')
     
     # a set of jobs to add to groups
@@ -95,4 +102,4 @@ def add_testdata(request):
     # after commit, the ID's are updated for inserted objects
     
     # go to the integration list page
-    return integration_list(request)
+    return redirect('/integration')

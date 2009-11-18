@@ -14,8 +14,16 @@
       <%doc>
       <a href="${ url_for('home')}">Home</a>
       </%doc>
-      <a href="${ url_for('add_testdata') }">Create test data</a><br/>
       <a href="${ url_for('integration_list') }">Integrations</a><br/>
+      <div id="admin_functions">
+        <fieldset>
+            <legend>Admin functions</legend>
+	        <form action="${ url_for('add_testdata') }" method="POST">
+	            <input type="submit" value="Create test data" /> 
+	        </form>
+        </fieldset>
+        
+      </div>
     </div>
     <div class="content">${next.body()}</div>
   </div>
