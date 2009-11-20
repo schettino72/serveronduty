@@ -8,10 +8,23 @@ Result: ${integration.result} <br/>
 Owner: ${integration.owner} <br/>
 Comment: <pre>${integration.comment}</pre><br/>
 
-<br/>
-<span>Job groups</span>
+<span class="failed">Failed jobs</span>
 <ul>
-%for jg in integration.jobgroups:
-    <li><a href="/jobgroup/${jg.id}">${jg.id}</a> ${jg.state} ${jg.result}</li>
+%for job in failed_jobs:
+    <li class=${job.result}><a href="/job/${job.id}">${job.name}</a></li>
+%endfor
+</ul>
+
+<span class="failed">Unstable jobs</span>
+<ul>
+%for job in unstable_jobs:
+    <li class=${job.result}><a href="/job/${job.id}">${job.name}</a></li>
+%endfor
+</ul>
+
+<span class="success">Success jobs</span>
+<ul>
+%for job in success_jobs:
+    <li class=${job.result}><a href="/job/${job.id}">${job.name}</a></li>
 %endfor
 </ul>

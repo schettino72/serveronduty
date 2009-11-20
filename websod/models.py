@@ -49,18 +49,18 @@ job_table = Table(
     Column('log', Text()),
     Column('started', DateTime()),
     Column('elapsed', Float()), # time in seconds
-    Column('create_status', String(10)), #calculated field, the job can be added, same or removed in this version/revision 
+    Column('create_status', String(10)), #calculated field, the job can be added, same or removed in this version/revision
     Column('introduced_result', Boolean()), #calculated field, the job result is new (true) or same (false) compared to the last version/revision
     Column('job_group_id', Integer, ForeignKey('job_group.id')),
     )
 
 class SourceTreeRoot(object):
-    
+
     def __init__(self, source_location=''):
         self.source_location = source_location
-    
+
 class Integration(object):
-    
+
     def __init__(self, version='', state='', result='',
                  owner='', comment=''):
         self.version = version
@@ -89,24 +89,33 @@ class Integration(object):
 #                break
 #        self.result = result
 
+    def getJobsByResult(self, result_str):
+        retlist = []
+        for a_jobgroup in self.jobgroups:
+            retlist.extend(
+                [a_job for a_job in a_jobgroup.jobs
+                            if a_job.result == result_str])
+
+        return retlist
+
 class SoddInstance(object):
-    
+
     def __init__(self, name='', machine=''):
         self.name = name
         self.machine = machine
-        
+
     def __repr__(self):
         return '<SoddInstance %s (%s)>' % (self.name, self.machine)
-    
+
 class JobGroup(object):
-    
+
     def __init__(self, started=None, elapsed=None, state='', result='', log='', ):
         self.started = started
         self.elapsed = elapsed
         self.state = state
         self.result = result
         self.log = log
-    
+
     def __repr__(self):
         return '<JobGroup %s (%s,%s)>' % (self.id, self.state, self.result)
 
