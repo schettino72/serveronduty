@@ -73,22 +73,6 @@ class Integration(object):
         return '<Integration (%s)%s - %s:%s>' % (
             self.id, self.version, self.state, self.result)
 
-#TODO: check this code after DB refactor, calculation will be pushed to SODD
-#    def calculate_result(self):
-#        result = "success" # optimistic
-#        non_success = session.query(Job).filter(Job.integration_id==self.id).\
-#            filter(Job.result!="success")
-#        for job in non_success:
-#            # check if any of the entries for this job was successful
-#            job_results = session.query(Job).filter(Job.integration_id==self.id).\
-#                filter(Job.name==job.name).filter(Job.result=='success').all()
-#            if job_results:
-#                result = 'unstable'
-#            else:
-#                result = 'error'
-#                break
-#        self.result = result
-
     def getJobsByResult(self, result_str):
         retlist = []
         for a_jobgroup in self.jobgroups:

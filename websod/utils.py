@@ -39,7 +39,7 @@ def serve_template(templatename, **kwargs):
     try:
         mytemplate = template_lookup.get_template(templatename)
         kwargs['url_for'] = url_for
-        return Response(mytemplate.render(**kwargs),
+        return Response(mytemplate.render_unicode(**kwargs).encode('utf-8'),
                         mimetype='text/html')
     except:
         return Response(exceptions.html_error_template().render(),

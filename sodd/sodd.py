@@ -22,16 +22,22 @@ def doit_unstable_integration(base_path, task_name):
     every task in doit will be mapped to one job
     """
     dodo = '%s/dodo.py' % base_path
-    run_cmd = "doit -f %s -r json %s"
+    run_cmd = ['doit', '-f', dodo, '--reporter', 'json',
+               '--output-file', '%s/result.json' % base_path, task_name]
     ignore_cmd = "doit -f %s ignore %s"
 
     # key: task/job name
     # value: list of results (dict)
     FINAL_RESULT = {}
     while True:
-        run_p = subprocess.Popen((run_cmd % (dodo, task_name)).split(),
-                                 stdout=subprocess.PIPE)
-        output = run_p.communicate()[0]
+        if os.path.exists('%s/result.json' % base_path):
+            os.remove('%s/result.json' % base_path)
+        print "doit integration in %s" % base_path
+        run_p = subprocess.Popen(run_cmd, stdout=subprocess.PIPE)
+        run_p.communicate()
+        result_file = open('%s/result.json' % base_path,'r')
+        output = result_file.read()
+        result_file.close()
         try:
             try_results = simplejson.loads(output)
         except ValueError, ve:
@@ -40,26 +46,40 @@ def doit_unstable_integration(base_path, task_name):
 
         added_something = False
         for res in try_results['tasks']:
+            print "============>", res['name'], " +++> ", res['result']
             if res['result'] in ('up-to-date', 'ignore'):
                 continue
             added_something = True
-            # task failed again. real failure, ignore it on next run
-            if res['name'] in FINAL_RESULT:
-                assert FINAL_RESULT[res['name']][0]['result'] == 'fail', FINAL_RESULT
-                subprocess.Popen((ignore_cmd % (dodo, res['name'])).split()).communicate()
-                FINAL_RESULT[res['name']].append(res)
+
+            if res['name'] not in FINAL_RESULT:
+                # execute first time. just add it to the list
+                FINAL_RESULT[res['name']] = res
             else:
-                FINAL_RESULT[res['name']] = [res]
+                # if it fails on previous run
+                if FINAL_RESULT[res['name']]['result'] == 'fail':
+                    # task failed again. real failure, ignore it on next run
+                    if res['result'] == 'fail':
+                        cmd = (ignore_cmd % (dodo, res['name'])).split()
+                        subprocess.Popen(cmd).communicate()
+                    # fail on previous run but passed now, mark as unstable.
+                    # keep output from failure
+                    else:
+                        FINAL_RESULT[res['name']]['result'] = 'unstable'
+                else:
+                    # for tasks that are repeated even when successful,
+                    # save them only case of failure
+                    if res['result'] == 'fail':
+                        FINAL_RESULT[res['name']] = res
+
 
         # exit from loop
         # successful returncode will be zero when all tasks have been run
         # added_something is necessary to get errors that unable tasks to run
         if (run_p.returncode == 0) or (not added_something):
             break
-    results = []
-    for res in FINAL_RESULT.itervalues():
-        results.extend(res)
-    return results
+
+    return FINAL_RESULT.itervalues()
+
 
 
 def doit_forget(base_path):
@@ -139,7 +159,7 @@ def loop_vcs(code, start_from, integrate_list, new_event):
             new_event.set()
             last_rev = integrate_list[-1]['revision']
         #time.sleep(10*60)
-        time.sleep(20)
+        time.sleep(60)
 
 
 def main(project_file):
@@ -147,7 +167,7 @@ def main(project_file):
     conn = sqlite3.connect("../sod.db")
 
     ## register self in sodd_instance table
-    ## TODO seems need a rule to name sodd and machine 
+    ## TODO seems need a rule to name sodd and machine
     instance_id = save_sodd_instance(conn.cursor(), 'SODD 1', 'qtest')
 
     #TODO: maybe it would be good to have a configuration entry for this
@@ -166,6 +186,8 @@ def main(project_file):
     # insert into source_location table
     source_tree_id = save_source_tree_root(conn.cursor(), project['url'])
 
+    if os.path.exists('trunk'):
+        shutil.rmtree('trunk')
     code = vcs.get_vcs(project['vcs'], project['url'], 'trunk')
     code.clone()
 
@@ -190,10 +212,10 @@ def main(project_file):
         #integrate rev is a dictionary to describe the revision
         integrate_rev = integrate_list.pop(0)
         print "starting integration %s" % integrate_rev['revision']
-        integration_id = save_integration(conn.cursor(),
-                                 integrate_rev['revision'], 'running', 'unknown',
-                                 integrate_rev['committer'], integrate_rev['comment'],
-                                 source_tree_id)
+        integration_id = save_integration(
+            conn.cursor(), integrate_rev['revision'], 'running', 'unknown',
+            integrate_rev['committer'], integrate_rev['comment'],
+            source_tree_id)
 
         started_on = time.time()
         started = datetime.datetime.utcfromtimestamp(started_on)
@@ -202,16 +224,17 @@ def main(project_file):
         integration_path = base_path + '/' + integrate_rev['revision']
         code.archive(integrate_rev['revision'], integration_path)
         # FIXME NBET stuff
-        # shutil.copy(base_path + "/dodo.py", integration_path + "/dodo.py")
-        # shutil.copy(integration_path + '/local_config.py.DEVELOPER',
-        #             integration_path + '/local_config.py')
+        shutil.copy(base_path + "/dodo.py", integration_path + "/dodo.py")
+        shutil.copy(integration_path + '/local_config.py.DEVELOPER',
+                     integration_path + '/local_config.py')
+
 
         integration_result = 'success'
         for task in project['tasks']:
+            print "starting task: ", task
             group_result = 'success'
             group_id = save_job_group(conn.cursor(), started, 'unknown',
-                                'running', 'unknown', '', integration_id, instance_id)
-
+                        'running', 'unknown', '', integration_id, instance_id)
             json_result = doit_unstable_integration(integration_path, task)
             #result = simplejson.loads(json_result)
             save_job(conn.cursor(), json_result, task, group_id)
@@ -227,7 +250,7 @@ def main(project_file):
             update_job_group(conn.cursor(), group_id, elapsed, group_result, '')
 
         print "finished integration %s" % integrate_rev
-        update_integration(conn.cursor(), integration_id, integration_result)
+        update_integration(conn.cursor(), integration_id, '???')
 
 if __name__ == "__main__":
     import sys

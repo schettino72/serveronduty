@@ -36,11 +36,6 @@ def integration(request, id):
 @expose('/integration/')
 def integration_list(request):
     integrations = session.query(Integration).order_by(Integration.id.desc()).all()
-    #for integ in integrations:
-# this might give a wrong result if page is viewed before the tests finishes running
-#        if not integ.result:
-    #    integ.calculate_result()
-
     return serve_template('integration_list.html', integrations=integrations)
 
 @expose('/job/<int:id>')
