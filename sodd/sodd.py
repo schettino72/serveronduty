@@ -78,7 +78,7 @@ def doit_unstable_integration(base_path, task_name):
         if (run_p.returncode == 0) or (not added_something):
             break
 
-    return FINAL_RESULT.itervalues()
+    return FINAL_RESULT.values()
 
 
 
