@@ -27,6 +27,7 @@ class HG(object):
                            be created/used.
     """
     rev_zero = 0 # number of first revision
+    bin = 'hg'
     def __init__(self, source, work_path):
         self.source = source
         self.work_path = work_path
@@ -134,6 +135,7 @@ class HG(object):
 # tested with svn 1.6.5
 class SVN(object):
     rev_zero = 1 # number of first revision
+    bin = 'svn'
     def __init__(self, source, work_path):
         self.source = source
         self.work_path = work_path
@@ -277,6 +279,7 @@ class SVN_NoExport(SVN):
 class BZR(object):
     """interface to BZR (bazaar)"""
     rev_zero = 1 # number of first revision
+    bin = 'bzr'
     def __init__(self, source, work_path):
         self.source = source
         self.work_path = work_path

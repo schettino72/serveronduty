@@ -31,11 +31,16 @@ one line and a blank line"""
 def pytest_funcarg__repo(request):
     # request.param is the vcs class to be used
     def create_repo():
-        repo_path  = 'testbin/%s' % request.param.__name__
+        vcs_class = request.param
+        try:
+            subprocess.call([vcs_class.bin])
+        except OSError:
+            py.test.skip("'%s' not found" % vcs_class.bin)
+        repo_path  = 'testbin/%s' % vcs_class.__name__
         if os.path.exists(repo_path): shutil.rmtree(repo_path)
         # create repo
-        repo_source = request.param.init(repo_path)
-        repo = request.param(repo_source, repo_path)
+        repo_source = vcs_class.init(repo_path)
+        repo = vcs_class(repo_source, repo_path)
         # commit 0 - file1
         subprocess.call(['echo', 'hi'], stdout=open(repo_path + '/file1','w'))
         repo.add(repo_path + '/file1')
