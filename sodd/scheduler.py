@@ -48,8 +48,8 @@ class ProcessTask(BaseTask):
         self.proc = None
         self._coroutine = self._coroutine_loop()
         self._started = False # started process
-        self.outdata = None
-        self.errdata = None
+        self.outdata = StringIO.StringIO()
+        self.errdata = StringIO.StringIO()
 
     def __str__(self):
         return BaseTask.__str__(self) + "(%s)" % " ".join(self.cmd)
@@ -69,12 +69,32 @@ class ProcessTask(BaseTask):
         self.proc = subprocess.Popen(self.cmd, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
         (yield) # wait for self.proc to finish
-        self.outdata = self.proc.stdout.read()
-        self.errdata = self.proc.stderr.read()
+
+        # TODO this is getting tricky... and ugly see:
+        # http://groups.google.com/group/comp.lang.python/browse_thread/thread/9e19f3a79449f536/
+        # try some king of polling? or turn-on / turn-off signal handling...
+        # stdout
+        while True:
+            try:
+                buff = self.proc.stdout.read(1024)
+                if not buff:
+                    break
+                self.outdata.write(buff)
+            except IOError:
+                pass # in case a signal is received while reading proc.stdout
+        # stderr
+        while True:
+            try:
+                buff = self.proc.stderr.read(1024)
+                if not buff:
+                    break
+                self.errdata.write(buff)
+            except IOError:
+                pass
 
 
     def terminate(self):
-        self.proc.terminate()
+        os.kill(self.proc.pid, signal.SIGTERM)
 
 
     def get_returncode(self):

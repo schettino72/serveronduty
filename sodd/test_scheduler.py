@@ -46,11 +46,11 @@ class TestProcessTask(object):
         t1.run()
         while(t1.proc.poll() is None):
             time.sleep(0.02) # magic number :)
-        assert t1.outdata is None
+        assert "" == t1.outdata.getvalue()
         # second run does data post-processing, and finishes task
         got = t1.run()
         assert TaskFinished == got
-        assert "done" == t1.outdata.strip()
+        assert "done" == t1.outdata.getvalue().strip()
 
     def test_terminate(self):
         t1 = ProcessTask(['python', 'sample1.py', '5'])
@@ -61,7 +61,7 @@ class TestProcessTask(object):
         # terminating the process does not cancel its post processing
         t1.run()
         assert 0 != t1.proc.returncode
-        assert "" == t1.outdata.strip()
+        assert "" == t1.outdata.getvalue().strip()
 
     def test_get_returncode(self, monkeypatch):
         monkeypatch.setattr(os, 'waitpid', lambda pid, opt: (pid, 0))
