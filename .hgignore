@@ -1,6 +1,8 @@
 syntax:glob
 
 *.pyc
+.coverage
+
 testbin
 sod.db
 sodd/pool

@@ -80,8 +80,9 @@ class ProcessTask(BaseTask):
                 if not buff:
                     break
                 self.outdata.write(buff)
+            # in case a signal is received while reading proc.stdout
             except IOError:
-                pass # in case a signal is received while reading proc.stdout
+                pass
         # stderr
         while True:
             try:
@@ -134,12 +135,15 @@ class PidTask(BaseTask):
 class Scheduler(object):
     time = time # time / sleep provider
 
-    def __init__(self):
+    def __init__(self, use_sigchld=True):
         self.tasks = {}
         # TODO use Queue (thread-safe)
         self.ready = deque() # ready to execute tasks
         self.waiting = [] # scheduled to be executed in the future
+        if use_sigchld:
+            self._register_sigchld()
 
+    def _register_sigchld(self):
         # create a task to identify terminated process tid
         def handle_child_terminate(signum, frame):
             self.add_task(PidTask(self))

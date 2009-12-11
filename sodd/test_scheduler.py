@@ -1,7 +1,9 @@
 import os
 import time
+import signal
 
 from scheduler import TaskFinished, BaseTask, ProcessTask, PidTask
+from scheduler import Scheduler
 
 
 class TestTask(object):
@@ -112,7 +114,9 @@ class TestPidTask(object):
         assert [fake_sched.tasks['2']] == t1.sched.ready
 
 
-class Mocktime(object):
+################################# Scheduler
+
+class MockTime(object):
     def __init__(self):
         self.current = 0
     def time(self):
@@ -120,4 +124,58 @@ class Mocktime(object):
     def sleep(self, delay):
         self.current += delay
 
+def pytest_funcarg__sched(request):
+    # scheduler with fake(controlled) time functions
+    def fake_sched():
+        sched = Scheduler(False)
+        sched.time = MockTime()
+        return sched
+    return request.cached_setup(setup=fake_sched, scope="function")
+
+class TestScheduler(object):
+    def test_child_terminate(self):
+        sched = Scheduler()
+        assert 0 == len(sched.tasks)
+        os.kill(os.getpid(), signal.SIGCHLD)
+        assert 1 == len(sched.tasks)
+        assert isinstance(sched.tasks.values()[0], PidTask)
+        # restore default
+        signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+        os.kill(os.getpid(), signal.SIGCHLD)
+        assert 1 == len(sched.tasks)
+
+
+    def test_add_task_ready(self, sched):
+        t1 = BaseTask()
+        sched.add_task(t1)
+        assert 1 == len(sched.tasks)
+        assert t1 == sched.tasks[t1.tid]
+        assert 1 == len(sched.ready)
+        assert 0 == len(sched.waiting)
+
+    def test_add_task_scheduled(self, sched):
+        tasks = [BaseTask() for i in range(3)]
+        sched.add_task(tasks[0], 20)
+        sched.add_task(tasks[1], 1)
+        sched.add_task(tasks[2], 10)
+        assert 3 == len(sched.tasks)
+        assert 0 == len(sched.ready)
+        assert 3 == len(sched.waiting)
+        # first element of waitng must be the next to be executed
+        assert tasks[1] == sched.waiting[0]
+
+    def test_run_task(self, sched):
+        t1 = BaseTask()
+        t1.run = lambda : None
+        t2 = BaseTask()
+        t2.run = lambda : TaskFinished
+        sched.add_task(t1)
+        sched.add_task(t2)
+        assert 2 == len(sched.tasks)
+        # not finished task
+        sched.run_task(t1)
+        assert 2 == len(sched.tasks)
+        # finished task
+        sched.run_task(t2)
+        assert 1 == len(sched.tasks)
 
