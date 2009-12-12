@@ -9,7 +9,7 @@ from collections import deque
 import heapq
 import logging
 import StringIO
-
+from inspect import isfunction, ismethod, CO_GENERATOR
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -19,18 +19,32 @@ class TaskFinished(object):
     pass
 
 
-class BaseTask(object):
+class Task(object):
     """Base for all tasks
     @cvar tid_counter (int): provides an unique "task id" for every task
     @ivar tid (int): task id
     @ivar scheduled (float): seconds since epoch (as given by time.time)
+
+    This class represents an activity that is run controlled by the Scheduler.
+    There are two ways to specify the activity: by passing a callable object to
+    the constructor, or by overriding the run() method in a subclass.
+    The activity function might be a simple method or a coroutine.
+    (shameless copied from python threading)
     """
 
     tid_counter = 0
-    def __init__(self):
-        BaseTask.tid_counter += 1
-        self.tid = BaseTask.tid_counter
+    def __init__(self, run_method=None):
+        Task.tid_counter += 1
+        self.tid = Task.tid_counter
+        self._started = False # started running
+        self._coroutine = False
         self.scheduled = None
+
+        if run_method is not None:
+            self.run = run_method
+        assert self.run #TODO
+        if self.isgeneratorfunction(self.run):
+            self._coroutine = self.run()
 
     def __str__(self):
         return "%s:%s" % (self.__class__.__name__, self.tid)
@@ -40,32 +54,46 @@ class BaseTask(object):
         return cmp(self.scheduled, other.scheduled)
 
 
-class ProcessTask(BaseTask):
+    def isgeneratorfunction(self, object):
+        """Return true if the object is a user-defined generator function.
+
+        Generator function objects provides same attributes as functions.
+        (copied from python2.6 inspect module)
+        """
+        return bool((isfunction(object) or ismethod(object)) and
+                    object.func_code.co_flags & CO_GENERATOR)
+
+    def run_iteration(self):
+        if self._coroutine:
+            if not self._started:
+                self._started = True
+                self._coroutine.next()
+                return
+            assert not self._coroutine.gi_running # TODO: remove this
+            try:
+                self._coroutine.send(None)
+            except StopIteration, e:
+                return TaskFinished
+        # run is simple function
+        else:
+            self._started = True
+            self.run()
+            return TaskFinished
+
+
+class ProcessTask(Task):
     """A task that executes a shell command"""
     def __init__(self, cmd):
-        BaseTask.__init__(self)
+        Task.__init__(self)
         self.cmd = cmd
         self.proc = None
-        self._coroutine = self._coroutine_loop()
-        self._started = False # started process
         self.outdata = StringIO.StringIO()
         self.errdata = StringIO.StringIO()
 
     def __str__(self):
-        return BaseTask.__str__(self) + "(%s)" % " ".join(self.cmd)
+        return Task.__str__(self) + "(%s)" % " ".join(self.cmd)
 
     def run(self):
-        if not self._started:
-            self._started = True
-            self._coroutine.next()
-            return
-        assert not self._coroutine.gi_running
-        try:
-            self._coroutine.send(None)
-        except StopIteration, e:
-            return TaskFinished
-
-    def _coroutine_loop(self):
         self.proc = subprocess.Popen(self.cmd, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
         (yield) # wait for self.proc to finish
@@ -99,6 +127,9 @@ class ProcessTask(BaseTask):
 
 
     def get_returncode(self):
+        """check if process terminated its execution and get returncode
+        @returns (int) returncode or None if process is still running
+        """
         if not self._started:
             return None
         try:
@@ -114,11 +145,11 @@ class ProcessTask(BaseTask):
 
 
 
-class PidTask(BaseTask):
-    """find tasks from pid's"""
+class PidTask(Task):
+    """find ProcessTask from pid"""
 
     def __init__(self, sched):
-        BaseTask.__init__(self)
+        Task.__init__(self)
         self.sched = sched
 
     def run(self):
@@ -128,7 +159,6 @@ class PidTask(BaseTask):
             returncode = t.get_returncode()
             if returncode is not None:
                 self.sched.ready.append(t)
-        return TaskFinished
 
 
 
@@ -161,7 +191,7 @@ class Scheduler(object):
 
     def run_task(self, task):
         logging.info("%s \t running" % task)
-        if task.run() == TaskFinished:
+        if task.run_iteration() == TaskFinished:
             del self.tasks[task.tid]
 
 

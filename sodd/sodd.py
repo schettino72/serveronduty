@@ -4,15 +4,10 @@ import subprocess
 import threading
 import time
 import datetime
+import sqlite3
 
 import simplejson
 import yaml
-
-try:
-    import sqlite3
-except ImportError:
-    from pysqlite2 import dbapi2 as sqlite3
-
 
 import vcs
 
