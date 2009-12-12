@@ -11,8 +11,9 @@ import logging
 import StringIO
 from inspect import isfunction, ismethod, CO_GENERATOR
 
-logging.basicConfig(level=logging.DEBUG)
 
+# logging
+logging.basicConfig(level=logging.DEBUG, format="%(message)s")
 
 
 class TaskFinished(object):
@@ -23,7 +24,8 @@ class Task(object):
     """Base for all tasks
     @cvar tid_counter (int): provides an unique "task id" for every task
     @ivar tid (int): task id
-    @ivar scheduled (float): seconds since epoch (as given by time.time)
+    @ivar scheduled (float): when this task should be executed,
+                             in seconds since epoch (as given by time.time)
 
     This class represents an activity that is run controlled by the Scheduler.
     There are two ways to specify the activity: by passing a callable object to
@@ -33,18 +35,22 @@ class Task(object):
     """
 
     tid_counter = 0
-    def __init__(self, run_method=None):
+    def __init__(self, run_method=None, scheduled=None):
         Task.tid_counter += 1
         self.tid = Task.tid_counter
-        self._started = False # started running
-        self._coroutine = False
-        self.scheduled = None
+        self.scheduled = scheduled
 
         if run_method is not None:
             self.run = run_method
         assert self.run #TODO
+
+        self._coroutine = None
         if self.isgeneratorfunction(self.run):
             self._coroutine = self.run()
+
+        # FIXME state ? (created, started, paused, cancelled, terminated)
+        self._started = False # started running
+
 
     def __str__(self):
         return "%s:%s" % (self.__class__.__name__, self.tid)
@@ -52,7 +58,6 @@ class Task(object):
     def __cmp__(self, other):
         """comparison based on scheduled time"""
         return cmp(self.scheduled, other.scheduled)
-
 
     def isgeneratorfunction(self, object):
         """Return true if the object is a user-defined generator function.
@@ -67,28 +72,33 @@ class Task(object):
         if self._coroutine:
             if not self._started:
                 self._started = True
-                self._coroutine.next()
-                return
+                return self._coroutine.next()
             assert not self._coroutine.gi_running # TODO: remove this
             try:
-                self._coroutine.send(None)
+                # TODO: can i just use next?
+                return self._coroutine.send(None)
             except StopIteration, e:
-                return TaskFinished
+                return TaskFinished()
         # run is simple function
         else:
             self._started = True
             self.run()
-            return TaskFinished
+            return TaskFinished()
 
 
 class ProcessTask(Task):
     """A task that executes a shell command"""
-    def __init__(self, cmd):
+    def __init__(self, cmd, timeout=None):
+        """
+        @param cmd (list): list of strings for Popen
+        @param timeout (float): time in seconds for terminating the process
+        """
         Task.__init__(self)
         self.cmd = cmd
         self.proc = None
         self.outdata = StringIO.StringIO()
         self.errdata = StringIO.StringIO()
+        self.timeout = timeout
 
     def __str__(self):
         return Task.__str__(self) + "(%s)" % " ".join(self.cmd)
@@ -96,7 +106,15 @@ class ProcessTask(Task):
     def run(self):
         self.proc = subprocess.Popen(self.cmd, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
-        (yield) # wait for self.proc to finish
+
+        # wait for self.proc to finish
+        if self.timeout:
+            now = time.time()
+            timeout_task = Task(self.terminate, self.timeout)
+        else:
+            timeout_task = None
+        yield timeout_task
+        # cancel timeout_task
 
         # TODO this is getting tricky... and ugly see:
         # http://groups.google.com/group/comp.lang.python/browse_thread/thread/9e19f3a79449f536/
@@ -123,7 +141,11 @@ class ProcessTask(Task):
 
 
     def terminate(self):
+        # TODO: check if sigterm really terminate the process, if not sigkill
+        logging.info("SIGTERM %s" % self.proc.pid)
         os.kill(self.proc.pid, signal.SIGTERM)
+
+
 
 
     def get_returncode(self):
@@ -136,7 +158,10 @@ class ProcessTask(Task):
             pid, status = os.waitpid(self.proc.pid, os.WNOHANG)
             # Python bug #2475
             # you can not get the returncode twice !
-            self.proc.returncode = status
+            if pid:
+                self.proc.returncode = status
+                logging.debug( "Process pid:%s tid:%s terminated satus:%s" %
+                               (pid, self.tid, status))
         except OSError:
             # system call can't find pid. it's gone. ignore it
             pass
@@ -163,8 +188,6 @@ class PidTask(Task):
 
 
 class Scheduler(object):
-    time = time # time / sleep provider
-
     def __init__(self, use_sigchld=True):
         self.tasks = {}
         # TODO use Queue (thread-safe)
@@ -182,17 +205,21 @@ class Scheduler(object):
 
     def add_task(self, task, delay=0):
         self.tasks[task.tid] = task
-        if delay == 0:
+        if delay == 0 and (task.scheduled is None):
             self.ready.append(task)
         else:
-            task.scheduled = self.time.time() + delay
+            if delay:
+                task.scheduled = time.time() + delay
             heapq.heappush(self.waiting, task)
 
 
     def run_task(self, task):
         logging.info("%s \t running" % task)
-        if task.run_iteration() == TaskFinished:
+        got = task.run_iteration()
+        if isinstance(got, TaskFinished):
             del self.tasks[task.tid]
+        elif isinstance(got, Task):
+            self.add_task(got)
 
 
     def loop(self):
@@ -201,7 +228,7 @@ class Scheduler(object):
             self.loop_iteration()
 
     def loop_iteration(self):
-        now = self.time.time()
+        now = time.time()
 
         # add scheduled tasks
         while self.waiting and (self.waiting[0].scheduled <= now):
@@ -217,11 +244,10 @@ class Scheduler(object):
         # TODO pause if (not self.waiting) ?
         interval = (self.waiting[0].scheduled - now) if self.waiting else 60
         logging.debug("sleeping %s" % interval)
-        self.time.sleep(interval)
+        time.sleep(interval)
 
 
 # TODO
-#  stop process timeout
 #  periodic task
 #  task locks
 #
