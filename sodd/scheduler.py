@@ -23,7 +23,9 @@ class TaskSleep(object):
     pass
 class TaskPause(object):
     pass
-
+class TaskCancel(object):
+    def __init__(self, tid):
+        self.tid = tid
 
 class Task(object):
     """Base for all tasks
@@ -49,12 +51,14 @@ class Task(object):
             self.run = run_method
         assert self.run #TODO
 
+
         self._coroutine = None
         if self.isgeneratorfunction(self.run):
             self._coroutine = self.run()
 
-        # FIXME state ? (created, started, paused, cancelled, terminated)
         self._started = False # started running
+        self.cancelled = False
+
 
 
     def __str__(self):
@@ -74,6 +78,9 @@ class Task(object):
                     object.func_code.co_flags & CO_GENERATOR)
 
     def run_iteration(self):
+        if self.cancelled:
+            return TaskFinished()
+
         if self._coroutine:
             if not self._started:
                 self._started = True
@@ -133,11 +140,15 @@ class ProcessTask(Task):
 
         # wait for self.proc to finish
         sched_operations = [TaskPause()]
+        timeout_task = None
         if self.timeout:
             now = time.time()
-            sched_operations.append(Task(self.terminate, self.timeout))
+            timeout_task = Task(self.terminate, now + self.timeout)
+            sched_operations.append(timeout_task)
         yield sched_operations
-        # FIXME cancel timeout_task
+        # cancel timeout task
+        if timeout_task:
+            yield TaskCancel(timeout_task.tid)
 
         # TODO this is getting tricky... and ugly see:
         # http://groups.google.com/group/comp.lang.python/browse_thread/thread/9e19f3a79449f536/
@@ -165,8 +176,14 @@ class ProcessTask(Task):
 
     def terminate(self):
         # TODO: check if sigterm really terminate the process, if not sigkill
+        if self.proc.returncode is not None:
+            return
         logging.info("SIGTERM %s" % self.proc.pid)
-        os.kill(self.proc.pid, signal.SIGTERM)
+
+        try:
+            os.kill(self.proc.pid, signal.SIGTERM)
+        except OSError:
+            pass # probably process already terminated. ignore.
 
 
     def get_returncode(self):
@@ -260,6 +277,8 @@ class Scheduler(object):
                 self.sleep_task(task)
             elif isinstance(op, TaskPause):
                 reschedule = False
+            elif isinstance(op, TaskCancel):
+                self.tasks[op.tid].cancelled = True
             else:
                 raise Exception("returned invalid value %s" % op)
         if reschedule:

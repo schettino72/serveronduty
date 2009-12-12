@@ -4,13 +4,13 @@ import signal
 
 import py.test
 
-from scheduler import TaskFinished, TaskSleep, TaskPause
+from scheduler import TaskFinished, TaskSleep, TaskPause, TaskCancel
 from scheduler import Scheduler, Task, PeriodicTask, ProcessTask, PidTask
 
 
 class MockTime(object):
     def __init__(self):
-        self.current = 0
+        self.current = 1000
     def time(self):
         return self.current
     def sleep(self, delay):
@@ -48,14 +48,14 @@ class TestTask(object):
         assert isinstance(t1.run_iteration(), TaskFinished)
 
     def test_run_coroutine(self):
-        def sample_coroutine():
-            x = 5
-            (yield x)
-            x += 3
-        t1 = Task(sample_coroutine)
-        assert 5 == t1.run_iteration()
+        t1 = Task(lambda : (yield))
+        assert t1.run_iteration() is None
         assert isinstance(t1.run_iteration(), TaskFinished)
 
+    def test_cancel(self):
+        t1 = Task(lambda :(yield))
+        t1.cancelled = True
+        assert isinstance(t1.run_iteration(), TaskFinished)
 
 
 class TestPeriodicTask(object):
@@ -101,7 +101,9 @@ class TestProcessTask(object):
         got = t1.run_iteration()
         assert isinstance(got[1], Task)
         assert got[1].scheduled == (time.time() + timeout)
-        t1.terminate() #cleanup
+        # cancel timeout task
+        got2 = t1.run_iteration()
+        assert isinstance(got2, TaskCancel)
 
     def test_terminate(self):
         t1 = ProcessTask(['python', 'sample1.py', '5'])
@@ -112,6 +114,25 @@ class TestProcessTask(object):
         # terminating the process does not cancel its post processing
         t1.run_iteration()
         assert 0 != t1.proc.returncode
+
+    def test_terminate2(self):
+        t1 = ProcessTask(['python', 'sample1.py', '5'])
+        t1.run_iteration()
+        t1.terminate()
+        while(t1.proc.poll() is None):
+            time.sleep(0.02)
+        t1.terminate()
+
+    def test_terminate_exception(self, monkeypatch):
+        # ignore errors trying to terminate a process that is gone
+        t1 = ProcessTask(['python', 'sample1.py', '5'])
+        t1.run_iteration()
+        t1.terminate()
+        while(t1.proc.poll() is None):
+            time.sleep(0.02)
+        t1.proc.returncode = None #force kill signal to be executed
+        t1.terminate()
+
 
     def test_get_returncode(self, monkeypatch):
         monkeypatch.setattr(os, 'waitpid', lambda pid, opt: (pid, 0))
@@ -254,6 +275,20 @@ class TestScheduler(object):
         assert 0 == len(sched.tasks)
         assert 1 == len(sched.ready)
         assert 0 == len(sched.waiting)
+
+    def test_run_task_Cancelled(self, sched):
+        t1 = Task(lambda :None)
+        t2 = Task(lambda : (yield TaskCancel(t1.tid)))
+        sched.add_task(t1)
+        sched.add_task(t2)
+        assert 2 == len(sched.tasks)
+        assert 2 == len(sched.ready)
+        assert 0 == len(sched.waiting)
+        sched.run_task(t2)
+        assert 2 == len(sched.tasks)
+        assert 3 == len(sched.ready)
+        assert 0 == len(sched.waiting)
+        assert t1.cancelled
 
     def test_run_task_Error(self, sched):
         # yield a class instead of instance
