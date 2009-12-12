@@ -16,7 +16,12 @@ from inspect import isfunction, ismethod, CO_GENERATOR
 logging.basicConfig(level=logging.DEBUG, format="%(message)s")
 
 
+# commands passed from task to scheduler
 class TaskFinished(object):
+    pass
+class TaskSleep(object):
+    pass
+class TaskPause(object):
     pass
 
 
@@ -86,6 +91,25 @@ class Task(object):
             return TaskFinished()
 
 
+class PeriodicTask(Task):
+    def __init__(self, interval, task_class, *args, **kwargs):
+        Task.__init__(self)
+        self.interval = interval
+        self.task_class = task_class
+        self.args = args
+        self.kwargs = kwargs
+
+    def run(self):
+        while True:
+            now = time.time()
+            next_iteration = now + self.interval
+            # TODO: take last time executed into consideration!
+            new_task = self.task_class(*self.args, **self.kwargs)
+            new_task.scheduled = next_iteration
+            self.scheduled = next_iteration
+            yield (new_task, TaskSleep())
+
+
 class ProcessTask(Task):
     """A task that executes a shell command"""
     def __init__(self, cmd, timeout=None):
@@ -108,13 +132,12 @@ class ProcessTask(Task):
                                      stderr=subprocess.PIPE)
 
         # wait for self.proc to finish
+        sched_operations = [TaskPause()]
         if self.timeout:
             now = time.time()
-            timeout_task = Task(self.terminate, self.timeout)
-        else:
-            timeout_task = None
-        yield timeout_task
-        # cancel timeout_task
+            sched_operations.append(Task(self.terminate, self.timeout))
+        yield sched_operations
+        # FIXME cancel timeout_task
 
         # TODO this is getting tricky... and ugly see:
         # http://groups.google.com/group/comp.lang.python/browse_thread/thread/9e19f3a79449f536/
@@ -144,8 +167,6 @@ class ProcessTask(Task):
         # TODO: check if sigterm really terminate the process, if not sigkill
         logging.info("SIGTERM %s" % self.proc.pid)
         os.kill(self.proc.pid, signal.SIGTERM)
-
-
 
 
     def get_returncode(self):
@@ -210,16 +231,39 @@ class Scheduler(object):
         else:
             if delay:
                 task.scheduled = time.time() + delay
-            heapq.heappush(self.waiting, task)
+            self.sleep_task(task)
 
+    def sleep_task(self, task):
+        # can not be called by a task in ready queue
+        # FIXME raise error
+        heapq.heappush(self.waiting, task)
 
     def run_task(self, task):
         logging.info("%s \t running" % task)
-        got = task.run_iteration()
-        if isinstance(got, TaskFinished):
-            del self.tasks[task.tid]
-        elif isinstance(got, Task):
-            self.add_task(got)
+        operations = task.run_iteration()
+        # make sure return value is iterable
+        if not hasattr(operations, '__iter__'):
+            operations = (operations,)
+        reschedule = True # add task to ready queue again
+        for op in operations:
+            # got a new task
+            if isinstance(op, Task):
+                self.add_task(op)
+            # task finished remove it from scheduler
+            elif isinstance(op, TaskFinished):
+                reschedule = False
+                del self.tasks[task.tid]
+            # sleep
+            elif isinstance(op, TaskSleep):
+                print "sleeping task..."
+                reschedule = False
+                self.sleep_task(task)
+            elif isinstance(op, TaskPause):
+                reschedule = False
+            else:
+                raise Exception("returned invalid value %s" % op)
+        if reschedule:
+            self.ready.append(task)
 
 
     def loop(self):
@@ -248,7 +292,6 @@ class Scheduler(object):
 
 
 # TODO
-#  periodic task
 #  task locks
 #
 #  RPC/webserver

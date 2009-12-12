@@ -2,8 +2,10 @@ import os
 import time
 import signal
 
-from scheduler import TaskFinished, Task, ProcessTask, PidTask
-from scheduler import Scheduler
+import py.test
+
+from scheduler import TaskFinished, TaskSleep, TaskPause
+from scheduler import Scheduler, Task, PeriodicTask, ProcessTask, PidTask
 
 
 class MockTime(object):
@@ -55,6 +57,19 @@ class TestTask(object):
         assert isinstance(t1.run_iteration(), TaskFinished)
 
 
+
+class TestPeriodicTask(object):
+    def test_run(self, monkeypatch):
+        mytime = MockTime()
+        monkeypatch.setattr(time, 'time', mytime.time)
+        periodic = PeriodicTask(10, Task, lambda :None)
+        got = periodic.run_iteration()
+        assert isinstance(got[0], Task)
+        assert (mytime.current + 10) == got[0].scheduled
+        assert (mytime.current + 10) == periodic.scheduled
+        assert isinstance(got[1], TaskSleep)
+
+
 class TestProcessTask(object):
     def test_str(self):
         t1 = ProcessTask(['python', 'xxx.py'])
@@ -68,7 +83,7 @@ class TestProcessTask(object):
         assert t1.proc is None
         # first run starts the process
         got = t1.run_iteration()
-        assert got is None
+        assert isinstance(got[0], TaskPause)
         while(t1.proc.poll() is None): time.sleep(0.02) # magic number :)
         assert "" == t1.outdata.getvalue()
         # second run does data post-processing, and finishes task
@@ -84,8 +99,8 @@ class TestProcessTask(object):
         assert t1.proc is None
         # first run starts the process
         got = t1.run_iteration()
-        assert isinstance(got, Task)
-        assert got.scheduled == (time.time() + timeout)
+        assert isinstance(got[1], Task)
+        assert got[1].scheduled == (time.time() + timeout)
         t1.terminate() #cleanup
 
     def test_terminate(self):
@@ -195,18 +210,56 @@ class TestScheduler(object):
         assert 1 == len(sched.waiting)
         assert t1 == sched.waiting[0]
 
-    def test_run_task(self, sched):
+    def test_run_task_Task(self, sched):
         t2 = Task(lambda :None)
         t1 = Task(lambda :(yield t2))
-        # just t1
         sched.add_task(t1)
         assert 1 == len(sched.tasks)
-        # t1 added t2
+        assert 1 == len(sched.ready)
+        assert 0 == len(sched.waiting)
         sched.run_task(t1)
         assert 2 == len(sched.tasks)
-        # t2 finished and removed
-        sched.run_task(t2)
+        assert 3 == len(sched.ready) # rescheduled t1 + t2
+        assert 0 == len(sched.waiting)
+
+    def test_run_task_Sleep(self, sched):
+        t1 = Task(lambda : (yield TaskSleep()))
+        sched.add_task(t1)
         assert 1 == len(sched.tasks)
+        assert 1 == len(sched.ready)
+        assert 0 == len(sched.waiting)
+        sched.run_task(t1)
+        assert 1 == len(sched.tasks)
+        assert 1 == len(sched.ready)
+        assert 1 == len(sched.waiting)
+
+    def test_run_task_Pause(self, sched):
+        t1 = Task(lambda :(yield TaskPause()))
+        sched.add_task(t1)
+        assert 1 == len(sched.tasks)
+        assert 1 == len(sched.ready)
+        assert 0 == len(sched.waiting)
+        sched.run_task(t1)
+        assert 1 == len(sched.tasks)
+        assert 1 == len(sched.ready)
+        assert 0 == len(sched.waiting)
+
+    def test_run_task_Finish(self, sched):
+        t1 = Task(lambda :None)
+        sched.add_task(t1)
+        assert 1 == len(sched.tasks)
+        assert 1 == len(sched.ready)
+        assert 0 == len(sched.waiting)
+        sched.run_task(t1)
+        assert 0 == len(sched.tasks)
+        assert 1 == len(sched.ready)
+        assert 0 == len(sched.waiting)
+
+    def test_run_task_Error(self, sched):
+        # yield a class instead of instance
+        t1 = Task(lambda : (yield TaskPause))
+        sched.add_task(t1)
+        py.test.raises(Exception, sched.run_task, t1)
 
 
 class TestSchedulerPool(object):
