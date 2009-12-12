@@ -41,7 +41,7 @@ class BaseTask(object):
 
 
 class ProcessTask(BaseTask):
-    """ """
+    """A task that executes a shell command"""
     def __init__(self, cmd):
         BaseTask.__init__(self)
         self.cmd = cmd
@@ -166,44 +166,36 @@ class Scheduler(object):
 
 
     def loop(self):
-        # loop until there are no more active tasks
+        """loop until there are no more active tasks"""
         while self.tasks:
-            # add scheduled tasks
-            now = self.time.time()
+            self.loop_iteration()
 
-            # add scheduled tasks
-            while self.waiting and (self.waiting[0].scheduled <= now):
-                self.ready.append(heapq.heappop(self.waiting))
+    def loop_iteration(self):
+        now = self.time.time()
 
-            # execute tasks that are ready to be executed
-            if self.ready:
-                task = self.ready.popleft()
-                self.run_task(task)
-                continue # just sleep if no task was run
+        # add scheduled tasks
+        while self.waiting and (self.waiting[0].scheduled <= now):
+            self.ready.append(heapq.heappop(self.waiting))
 
-            # wait for until next scheduled task is ready
-            # TODO pause if (not self.waiting) ?
-            interval = (self.waiting[0].scheduled - now) if self.waiting else 60
-            logging.debug("sleeping %s" % interval)
-            self.time.sleep(interval)
+        # execute tasks that are ready to be executed
+        if self.ready:
+            task = self.ready.popleft()
+            self.run_task(task)
+            return # just sleep if no task was run
 
-
-
-if __name__ == "__main__":
-    sched = Scheduler()
-    sched.add_task(ProcessTask(['echo', 'xx']))
-    sched.add_task(ProcessTask(['python', 'sample1.py', '1']))
-    time.sleep(2.5)
-    sched.add_task(ProcessTask(['python', 'sample1.py', '2']))
-    sched.add_task(ProcessTask(['echo', 'xx']), 10)
-    sched.loop()
+        # wait for until next scheduled task is ready
+        # TODO pause if (not self.waiting) ?
+        interval = (self.waiting[0].scheduled - now) if self.waiting else 60
+        logging.debug("sleeping %s" % interval)
+        self.time.sleep(interval)
 
 
 # TODO
-# stop process timeout
-# periodic task
-# task locks
-# threaded task
-# async db
-# RPC
-# pause/resume
+#  stop process timeout
+#  periodic task
+#  task locks
+#
+#  RPC/webserver
+#  threaded task
+#  async db
+#  pause/resume

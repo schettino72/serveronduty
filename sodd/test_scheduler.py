@@ -46,8 +46,7 @@ class TestProcessTask(object):
         assert t1.proc is None
         # first run starts the process
         t1.run()
-        while(t1.proc.poll() is None):
-            time.sleep(0.02) # magic number :)
+        while(t1.proc.poll() is None): time.sleep(0.02) # magic number :)
         assert "" == t1.outdata.getvalue()
         # second run does data post-processing, and finishes task
         got = t1.run()
@@ -179,3 +178,58 @@ class TestScheduler(object):
         sched.run_task(t2)
         assert 1 == len(sched.tasks)
 
+
+class TestSchedulerPool(object):
+
+    def test_iteration_execute_one(self, sched):
+        t1 = BaseTask()
+        t1.run = lambda : TaskFinished
+        t2 = BaseTask()
+        t2.run = lambda : TaskFinished
+        sched.add_task(t1)
+        sched.add_task(t2)
+        sched.loop_iteration()
+        assert 1 == len(sched.ready)
+
+    def test_iteration_waiting(self, sched):
+        t1 = BaseTask()
+        t1.run = lambda : TaskFinished
+        t2 = BaseTask()
+        t2.run = lambda : TaskFinished
+        t3 = BaseTask()
+        t3.run = lambda : TaskFinished
+        sched.add_task(t1)
+        sched.add_task(t2, 40)
+        sched.add_task(t3, 30)
+        sched.time.current += 35
+        sched.loop_iteration()
+        assert t3 == sched.ready[0]
+        assert t2 == sched.waiting[0]
+
+    def test_iteration_sleep(self, sched):
+        t1 = BaseTask()
+        t1.run = lambda : TaskFinished
+        sched.time.current = 100
+        sched.add_task(t1, 40)
+        sched.loop_iteration()
+        assert 140 == sched.time.current
+
+    def test_loop_no_tasks(self, sched):
+        def not_executed(): raise Exception('this must not be executed')
+        sched.loop_iteration = not_executed
+        sched.loop()
+        # nothing raised ok
+
+    def test_loop_with_tasks(self, sched):
+        count = [] # count how many tasks were executed
+        def count_run():
+            count.append(1)
+            return TaskFinished
+        t1 = BaseTask()
+        t1.run = count_run
+        t2 = BaseTask()
+        t2.run = count_run
+        sched.add_task(t1)
+        sched.add_task(t2)
+        sched.loop()
+        assert 2 == len(count)
