@@ -2,5 +2,5 @@ vcs: bzr
 url: ../../doit
 tasks:
 - checker
-- nose
-start_rev: 172
+- ut
+start_rev: 199

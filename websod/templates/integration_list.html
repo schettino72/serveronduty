@@ -20,5 +20,18 @@
     <td><pre>${intg.comment}</pre></td>
   </tr>
 %endfor
-
 </table>
+
+## add some dumb data (displayed only if no data available)
+%if not integrations:
+  <div id="admin_functions">
+    <fieldset>
+      <legend>Admin functions</legend>
+      <form action="${ url_for('add_testdata') }" method="POST">
+	<input type="submit" value="Create test data" />
+      </form>
+    </fieldset>
+  </div>
+%endif
+
+

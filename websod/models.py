@@ -12,11 +12,15 @@ source_tree_root_table = Table(
 integration_table = Table(
     'integration', metadata,
     Column('id', Integer, primary_key=True),
-    Column('version', String(20)), # VCS revision number or working copy identifier
-    Column('state', String(10)), # running/waiting/finished
+    # VCS revision number or working copy identifier
+    Column('version', String(20)),
+    # running/waiting/finished
+    Column('state', String(10)),
     Column('result', String(20)),
-    Column('owner', String(40)), # the person who created this revision or working copy owner
-    Column('comment', String(1024)), # the commit comment for the revision, length should be considered
+    # the person who created this revision or working copy owner
+    Column('owner', String(40)),
+    # the commit comment for the revision, length should be considered
+    Column('comment', String(1024)),
     Column('source_tree_root_id', Integer, ForeignKey('source_tree_root.id')),
     )
 
@@ -34,7 +38,8 @@ job_group_table = Table(
     Column('elapsed', Float()), # time in seconds
     Column('state', String(10)), # running/waiting/finished
     Column('result', String(10)),
-    Column('log', Text()),  # if no tests can be executed, a log is generated about it
+    # if no tests can be executed, a log is generated about it
+    Column('log', Text()),
     Column('integration_id', Integer, ForeignKey('integration.id')),
     Column('sodd_instance_id', Integer, ForeignKey('sodd_instance.id')),
     )
@@ -49,15 +54,21 @@ job_table = Table(
     Column('log', Text()),
     Column('started', DateTime()),
     Column('elapsed', Float()), # time in seconds
-    Column('create_status', String(10)), #calculated field, the job can be added, same or removed in this version/revision
-    Column('introduced_result', Boolean()), #calculated field, the job result is new (true) or same (false) compared to the last version/revision
+    # calculated field, the job can be added, same or removed
+    # in this version/revision
+    Column('create_status', String(10)),
+    Column('introduced_result', Boolean()),
+    # calculated field, the job result is new (true) or same (false)
+    # compared to the last version/revision
     Column('job_group_id', Integer, ForeignKey('job_group.id')),
     )
+
 
 class SourceTreeRoot(object):
 
     def __init__(self, source_location=''):
         self.source_location = source_location
+
 
 class Integration(object):
 
@@ -82,6 +93,7 @@ class Integration(object):
 
         return retlist
 
+
 class SoddInstance(object):
 
     def __init__(self, name='', machine=''):
@@ -90,6 +102,7 @@ class SoddInstance(object):
 
     def __repr__(self):
         return '<SoddInstance %s (%s)>' % (self.name, self.machine)
+
 
 class JobGroup(object):
 
@@ -102,6 +115,7 @@ class JobGroup(object):
 
     def __repr__(self):
         return '<JobGroup %s (%s,%s)>' % (self.id, self.state, self.result)
+
 
 class Job(object):
     def __init__(self, name, type='', result='', log='',
@@ -116,6 +130,8 @@ class Job(object):
 
     def __repr__(self):
         return '<Job %s>' % self.name
+
+
 
 mapper(SourceTreeRoot, source_tree_root_table)
 

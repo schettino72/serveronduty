@@ -7,14 +7,23 @@ from websod.models import Integration, Job, SourceTreeRoot, JobGroup
 
 from datetime import timedelta, datetime
 
-def home(request):
-    # show results from last 3 days
-#    integrations_from = datetime.now() + timedelta(days=-3)
-#    from_str = integrations_from.strftime("%Y-%m-%d 00:00:00")
-#    latest_integrations = session.query(Integration).\
-#        filter("started > '%s'" % from_str).\
-#        order_by(Integration.started.desc()).all()
-    return serve_template('home.html')
+# @expose('/')
+# def home(request):
+#     # show results from last 3 days
+#     integrations_from = datetime.now() + timedelta(days=-3)
+#     from_str = integrations_from.strftime("%Y-%m-%d 00:00:00")
+#     latest_integrations = session.query(Integration).\
+#         filter("started > '%s'" % from_str).\
+#         order_by(Integration.started.desc()).all()
+#     return serve_template('home.html')
+
+
+@expose('/') #TODO show only latest integrations. see home function above
+@expose('/integration/')
+def integration_list(request):
+    integrations = session.query(Integration).order_by(Integration.id.desc()).all()
+    return serve_template('integration_list.html', integrations=integrations)
+
 
 
 @expose('/integration/<int:id>')
@@ -32,16 +41,15 @@ def integration(request, id):
             unstable_jobs=sorted(unstable_jobs, key=lambda k: k.name),
             success_jobs=sorted(success_jobs, key=lambda k: k.name))
 
-@expose('/')
-@expose('/integration/')
-def integration_list(request):
-    integrations = session.query(Integration).order_by(Integration.id.desc()).all()
-    return serve_template('integration_list.html', integrations=integrations)
+
 
 @expose('/job/<int:id>')
 def job(request, id):
     the_job = session.query(Job).get(id)
     return serve_template('job.html', job=the_job)
+
+
+
 
 @expose('/testdata')
 def add_testdata(request):
@@ -56,10 +64,14 @@ def add_testdata(request):
 
     # a set of jobs to add to groups
 
-    job1 = Job("/test/file1.py", "unit", "success", 'log', None, None,'finished')
-    job2 = Job("/ftest/ftest_file1.py", "ftest", "success", 'log', None, None,'finished')
-    job3 = Job("/test/file2.py", "unit", "fail", 'log', None, None,'finished')
-    job4 = Job("/test/file3.py", "ftest", "unstable", 'log', None, None,'finished')
+    job1 = Job("/test/file1.py", "unit", "success", 'log',
+               None, None,'finished')
+    job2 = Job("/ftest/ftest_file1.py", "ftest", "success", 'log',
+               None, None,'finished')
+    job3 = Job("/test/file2.py", "unit", "fail", 'log',
+               None, None,'finished')
+    job4 = Job("/test/file3.py", "ftest", "unstable", 'log',
+               None, None,'finished')
     # this will link different job groups to the same job object, but it is not
     # a problem for now
 

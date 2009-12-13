@@ -219,9 +219,9 @@ def main(project_file):
         integration_path = base_path + '/' + integrate_rev['revision']
         code.archive(integrate_rev['revision'], integration_path)
         # FIXME NBET stuff
-        shutil.copy(base_path + "/dodo.py", integration_path + "/dodo.py")
-        shutil.copy(integration_path + '/local_config.py.DEVELOPER',
-                     integration_path + '/local_config.py')
+        #shutil.copy(base_path + "/dodo.py", integration_path + "/dodo.py")
+        #shutil.copy(integration_path + '/local_config.py.DEVELOPER',
+        #             integration_path + '/local_config.py')
 
 
         integration_result = 'success'
@@ -245,7 +245,7 @@ def main(project_file):
             update_job_group(conn.cursor(), group_id, elapsed, group_result, '')
 
         print "finished integration %s" % integrate_rev
-        update_integration(conn.cursor(), integration_id, '???')
+        update_integration(conn.cursor(), integration_id, integration_result)
 
 if __name__ == "__main__":
     import sys
