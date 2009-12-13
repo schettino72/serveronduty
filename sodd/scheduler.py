@@ -18,14 +18,25 @@ logging.basicConfig(level=logging.DEBUG, format="%(message)s")
 
 # commands passed from task to scheduler
 class TaskFinished(object):
+    """indicate this task has finished"""
     pass
+
 class TaskSleep(object):
+    """sleep current task until scheduled time """
     pass
+
+#TODO: merge sleep/pause
 class TaskPause(object):
-    pass
+    """Pause current task until given task terminates """
+    def __init__(self, tid=None):
+        self.tid = tid
+
 class TaskCancel(object):
+    """Cancel task"""
     def __init__(self, tid):
         self.tid = tid
+
+###################################################
 
 class Task(object):
     """Base for all tasks
@@ -34,6 +45,8 @@ class Task(object):
     @ivar scheduled (float): when this task should be executed,
                              in seconds since epoch (as given by time.time)
     @ivar lock (str): name of the lock this task holds while running
+    @ivar dependents (list - int): list of tasks that are waitng for this
+                                   task to be finished.
 
     This class represents an activity that is run controlled by the Scheduler.
     There are two ways to specify the activity: by passing a callable object to
@@ -48,6 +61,7 @@ class Task(object):
         self.tid = Task.tid_counter
         self.scheduled = scheduled
         self.lock = lock
+        self.dependents = []
 
         if run_method is not None:
             self.run = run_method
@@ -60,7 +74,6 @@ class Task(object):
 
         self._started = False # started running
         self.cancelled = False
-
 
 
     def __str__(self):
@@ -100,6 +113,7 @@ class Task(object):
             return TaskFinished()
 
 
+
 class PeriodicTask(Task):
     def __init__(self, interval, task_class, *args, **kwargs):
         Task.__init__(self)
@@ -117,6 +131,7 @@ class PeriodicTask(Task):
             new_task.scheduled = next_iteration
             self.scheduled = next_iteration
             yield (new_task, TaskSleep())
+
 
 
 class ProcessTask(Task):
@@ -227,6 +242,18 @@ class PidTask(Task):
 
 
 
+class GroupTask(Task):
+    """Execute group of tasks in sequence (one at a time)"""
+    def __init__(self, task_list):
+        Task.__init__(self)
+        self.task_list = task_list[::-1] #reverse list
+
+    def run(self):
+        while self.task_list:
+            task = self.task_list.pop()
+            (yield (task, TaskPause(task.tid)))
+
+
 class Scheduler(object):
     def __init__(self, use_sigchld=True):
         self.tasks = {}
@@ -246,12 +273,20 @@ class Scheduler(object):
 
 
     def add_task(self, task, delay=0):
+        """delay == 0 => ready
+           delay < 0 => not ready
+           delay > 0 => scheduled
+         """
         self.tasks[task.tid] = task
+        # set scheduled time
+        if delay > 0:
+            task.scheduled = time.time() + delay
+        elif delay < 0:
+            task.scheduled = None
+        # ready/schedule/wait
         if delay == 0 and (task.scheduled is None):
             self.ready.append(task)
-        else:
-            if delay:
-                task.scheduled = time.time() + delay
+        elif task.scheduled:
             self.sleep_task(task)
 
 
@@ -293,16 +328,23 @@ class Scheduler(object):
                     while lock_list:
                         self.ready.append(lock_list.popleft())
                     del self.locks[task.lock]
+                for dependent_tid in task.dependents:
+                    self.ready.append(self.tasks[dependent_tid])
                 del self.tasks[task.tid]
             # sleep
             elif isinstance(op, TaskSleep):
                 reschedule = False
                 self.sleep_task(task)
+            # pause
             elif isinstance(op, TaskPause):
                 reschedule = False
+                if op.tid is not None:
+                    self.tasks[op.tid].dependents.append(task.tid)
+            # cancel
             elif isinstance(op, TaskCancel):
                 if op.tid in self.tasks:
                     self.tasks[op.tid].cancelled = True
+            # do nothing
             elif op is not None:
                 raise Exception("returned invalid value %s" % op)
         if reschedule:
@@ -336,8 +378,6 @@ class Scheduler(object):
 
 
 # TODO
-#  task locks
-#
 #  RPC/webserver
 #  threaded task
 #  async db

@@ -5,7 +5,8 @@ import signal
 import py.test
 
 from scheduler import TaskFinished, TaskSleep, TaskPause, TaskCancel
-from scheduler import Scheduler, Task, PeriodicTask, ProcessTask, PidTask
+from scheduler import Scheduler, Task
+from scheduler import PeriodicTask, ProcessTask, PidTask, GroupTask
 
 
 class MockTime(object):
@@ -183,6 +184,27 @@ class TestPidTask(object):
         assert [fake_sched.tasks['2']] == t1.sched.ready
 
 
+class TestGroupTask(object):
+    def test_run(self):
+        t1 = Task(lambda :None)
+        t2 = Task(lambda :None)
+        tg = GroupTask([t1, t2])
+        # run & wait t1
+        got = tg.run_iteration()
+        assert t1 == got[0]
+        assert t1.tid == got[1].tid
+        assert isinstance(got[1], TaskPause)
+        # run & wait t2
+        got = tg.run_iteration()
+        assert t2 == got[0]
+        assert t2.tid == got[1].tid
+        assert isinstance(got[1], TaskPause)
+        # done
+        got = tg.run_iteration()
+        assert isinstance(got, TaskFinished)
+
+
+
 # ################################# Scheduler
 
 def pytest_funcarg__sched(request):
@@ -231,6 +253,13 @@ class TestScheduler(object):
         assert 1 == len(sched.waiting)
         assert t1 == sched.waiting[0]
 
+    def test_add_task_not_ready(self, sched):
+        t1 = Task((lambda :None))
+        sched.add_task(t1, -1)
+        assert 1 == len(sched.tasks)
+        assert 0 == len(sched.ready)
+        assert 0 == len(sched.waiting)
+
     def test_run_task_Task(self, sched):
         t2 = Task(lambda :None)
         t1 = Task(lambda :(yield t2))
@@ -264,6 +293,18 @@ class TestScheduler(object):
         assert 1 == len(sched.tasks)
         assert 1 == len(sched.ready)
         assert 0 == len(sched.waiting)
+
+    def test_run_task_Pause_depends(self, sched):
+        t1 = Task(lambda : None)
+        t2 = Task(lambda :(yield TaskPause(t1.tid)))
+        sched.add_task(t1, -1)
+        sched.add_task(t2, -1)
+        sched.run_task(t2)
+        assert [t2.tid] == t1.dependents
+        assert 0 == len(sched.ready)
+        # running t1 puts t2 as ready
+        sched.run_task(t1)
+        assert t1 == sched.ready[0]
 
     def test_run_task_Finish(self, sched):
         t1 = Task(lambda :None)
