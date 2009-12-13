@@ -33,6 +33,7 @@ class Task(object):
     @ivar tid (int): task id
     @ivar scheduled (float): when this task should be executed,
                              in seconds since epoch (as given by time.time)
+    @ivar lock (str): name of the lock this task holds while running
 
     This class represents an activity that is run controlled by the Scheduler.
     There are two ways to specify the activity: by passing a callable object to
@@ -42,10 +43,11 @@ class Task(object):
     """
 
     tid_counter = 0
-    def __init__(self, run_method=None, scheduled=None):
+    def __init__(self, run_method=None, scheduled=None, lock=None):
         Task.tid_counter += 1
         self.tid = Task.tid_counter
         self.scheduled = scheduled
+        self.lock = lock
 
         if run_method is not None:
             self.run = run_method
@@ -119,12 +121,12 @@ class PeriodicTask(Task):
 
 class ProcessTask(Task):
     """A task that executes a shell command"""
-    def __init__(self, cmd, timeout=None):
+    def __init__(self, cmd, timeout=None, lock=None):
         """
         @param cmd (list): list of strings for Popen
         @param timeout (float): time in seconds for terminating the process
         """
-        Task.__init__(self)
+        Task.__init__(self, lock=lock)
         self.cmd = cmd
         self.proc = None
         self.outdata = StringIO.StringIO()
@@ -231,8 +233,10 @@ class Scheduler(object):
         # TODO use Queue (thread-safe)
         self.ready = deque() # ready to execute tasks
         self.waiting = [] # scheduled to be executed in the future
+        self.locks = {}
         if use_sigchld:
             self._register_sigchld()
+
 
     def _register_sigchld(self):
         # create a task to identify terminated process tid
@@ -250,17 +254,32 @@ class Scheduler(object):
                 task.scheduled = time.time() + delay
             self.sleep_task(task)
 
+
     def sleep_task(self, task):
         # can not be called by a task in ready queue
         # FIXME raise error
         heapq.heappush(self.waiting, task)
 
+
     def run_task(self, task):
+        # note task should be pop-out of ready queue before calling this
+
+        if (not task._started) and task.lock:
+            # locked can't execute now
+            if task.lock in self.locks:
+                self.locks[task.lock].append(task)
+                logging.info("%s \t locked" % task)
+                return
+            # lock other and start
+            self.locks[task.lock] = deque()
+
         logging.info("%s \t running" % task)
+
         operations = task.run_iteration()
         # make sure return value is iterable
         if not hasattr(operations, '__iter__'):
             operations = (operations,)
+
         reschedule = True # add task to ready queue again
         for op in operations:
             # got a new task
@@ -269,17 +288,22 @@ class Scheduler(object):
             # task finished remove it from scheduler
             elif isinstance(op, TaskFinished):
                 reschedule = False
+                if task.lock:
+                    lock_list = self.locks[task.lock]
+                    while lock_list:
+                        self.ready.append(lock_list.popleft())
+                    del self.locks[task.lock]
                 del self.tasks[task.tid]
             # sleep
             elif isinstance(op, TaskSleep):
-                print "sleeping task..."
                 reschedule = False
                 self.sleep_task(task)
             elif isinstance(op, TaskPause):
                 reschedule = False
             elif isinstance(op, TaskCancel):
-                self.tasks[op.tid].cancelled = True
-            else:
+                if op.tid in self.tasks:
+                    self.tasks[op.tid].cancelled = True
+            elif op is not None:
                 raise Exception("returned invalid value %s" % op)
         if reschedule:
             self.ready.append(task)
@@ -289,6 +313,7 @@ class Scheduler(object):
         """loop until there are no more active tasks"""
         while self.tasks:
             self.loop_iteration()
+
 
     def loop_iteration(self):
         now = time.time()

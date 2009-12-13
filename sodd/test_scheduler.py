@@ -297,6 +297,30 @@ class TestScheduler(object):
         py.test.raises(Exception, sched.run_task, t1)
 
 
+    def test_lock(self, sched):
+        t1 = Task((lambda: (yield)), lock="lock_x")
+        t2 = Task((lambda: (yield)), lock="lock_x")
+        sched.add_task(t1)
+        sched.add_task(t2)
+        assert 0 == len(sched.locks)
+        # t1 locks and starts
+        sched.run_task(t1)
+        assert 0 == len(sched.locks["lock_x"])
+        assert t1._started
+        assert 3 == len(sched.ready)
+        # t2 is locked / not started
+        sched.run_task(t2)
+        assert t2 == sched.locks["lock_x"][0]
+        assert not t2._started
+        assert 3 == len(sched.ready)
+        # t1 finishes / free t2
+        sched.run_task(t1)
+        assert "lock_x" not in sched.locks
+        assert 4 == len(sched.ready)
+        assert t2 == sched.ready[-1]
+
+
+
 class TestSchedulerPool(object):
 
     def test_iteration_execute_one(self, sched):
