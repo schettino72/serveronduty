@@ -66,7 +66,7 @@ class TestPeriodicTask(object):
         periodic = PeriodicTask(10, Task, lambda :None)
         got = periodic.run_iteration()
         assert isinstance(got[0], Task)
-        assert (mytime.current + 10) == got[0].scheduled
+        assert got[0].scheduled is None
         assert (mytime.current + 10) == periodic.scheduled
         assert isinstance(got[1], TaskSleep)
 

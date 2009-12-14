@@ -97,11 +97,11 @@ class Task(object):
             return TaskFinished()
 
         if self._coroutine:
-            if not self._started:
-                self._started = True
-                return self._coroutine.next()
-            assert not self._coroutine.gi_running # TODO: remove this
             try:
+                if not self._started:
+                    self._started = True
+                    return self._coroutine.next()
+                assert not self._coroutine.gi_running # TODO: remove this
                 # TODO: can i just use next?
                 return self._coroutine.send(None)
             except StopIteration, e:
@@ -128,7 +128,7 @@ class PeriodicTask(Task):
             next_iteration = now + self.interval
             # TODO: take last time executed into consideration!
             new_task = self.task_class(*self.args, **self.kwargs)
-            new_task.scheduled = next_iteration
+            new_task.parent = self
             self.scheduled = next_iteration
             yield (new_task, TaskSleep())
 
@@ -150,7 +150,7 @@ class ProcessTask(Task):
 
     def __str__(self):
         return Task.__str__(self) + "(%s)" % " ".join(self.cmd)
-
+        
     def run(self):
         self.proc = subprocess.Popen(self.cmd, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
