@@ -1,3 +1,5 @@
+from __future__ import with_statement
+
 import os
 import simplejson
 
@@ -7,10 +9,26 @@ class DoitUnstable(Task):
     """wrap doit integration with some logic to deal with unstable tests
 
     every task in doit will be mapped to one job
+    @ivar dodo_path (str): path to dodo file
+    @ivar base_path (str): path to .doit path
+    @ivar doit_task (str): task name
+    @ivar timeout (floats): maximum seconds job is allowed to take.
+                            if it takes longer it is assumed that in hanged.
+    @ivar final_result (dict): final result of the job, there 4 results
+                               success, fail, unstable, hang
+
+         - name (str)
+         - result (str)
+         - out (str)
+         - err (str)
+         - started (str)
+         - elapsed (float)
+
     """
-    def __init__(self, base_path, doit_task, timeout=None):
+    def __init__(self, dodo_path, doit_task, base_path=None, timeout=None):
         Task.__init__(self)
-        self.base_path = base_path
+        self.dodo_path = dodo_path
+        self.base_path = base_path if base_path else os.path.dirname(dodo_path)
         self.doit_task = doit_task
         self.timeout = timeout
         # key: task/job name
@@ -18,21 +36,14 @@ class DoitUnstable(Task):
         self.final_result = {}
 
 
-    def _get_json(self, file_path):
-        """read json content from file and return as """
-        result_file = open(file_path ,'r')
-        output = result_file.read()
-        result_file.close()
-        try:
-            try_results = simplejson.loads(output)
-        except ValueError, ve:
-            print "JSON loading failed: " + output
-            raise
-        return try_results
-
-
     def calculate_final_results(self, run_results):
-        """process results from run_results and add them to final_results"""
+        """process results from run_results and add them to final_results
+        @param run_results (dict): as returned by doit
+        @returns tuple (added_something, to_ignore):
+             added_something: false if all results were up-to-date or ignored
+             to_ignore (list-str): doit-tasks that should be ignored,
+                                   (because they consistently fail)
+        """
         added_something = False
         to_ignore = []
         for res in run_results['tasks']:
@@ -43,11 +54,12 @@ class DoitUnstable(Task):
                 continue
             added_something = True
 
-            # execute first time. just add it to the list
+            # executed first time. just add it to the list
             if res['name'] not in self.final_result:
                 self.final_result[res['name']] = res
                 continue
 
+            # it was executed before...
             # if it fails on previous run
             if self.final_result[res['name']]['result'] == 'fail':
                 # task failed again. real failure, ignore it on next run
@@ -64,27 +76,42 @@ class DoitUnstable(Task):
             # save them only in case of failure
             if res['result'] == 'fail':
                 self.final_result[res['name']] = res
+
         return (added_something, to_ignore)
 
 
 
     def run(self):
-        dodo = '%s/dodo.py' % self.base_path
-        run_cmd = ['doit', '-f', dodo, '--reporter', 'json',
-                   '--output-file', '%s/result.json' % self.base_path,
+        result_file = '%s/result.json' % self.base_path
+        run_cmd = ['doit', '-f', self.dodo_path,
+                   '--reporter', 'json',
+                   '--output-file', result_file,
+                   '--dir', self.base_path,
                    self.doit_task]
-        ignore_cmd = ["doit", "-f", dodo, "ignore"]
+        ignore_cmd = ["doit", "-f", self.dodo_path, "ignore"]
 
         while True:
             # remove results from previous runs
-            if os.path.exists('%s/result.json' % self.base_path):
-                os.remove('%s/result.json' % self.base_path)
+            if os.path.exists(result_file):
+                os.remove(result_file)
             print "doit integration in %s" % self.base_path
 
             # run and get result
             doit_run_task = ProcessTask(run_cmd, self.timeout)
             (yield (doit_run_task, TaskPause(doit_run_task.tid)))
-            run_results = self._get_json('%s/result.json' % self.base_path)
+
+            # check could not run doit
+            if not os.path.exists(result_file):
+                self.final_result[self.doit_task] = {
+                    'name': self.doit_task, 'result': 'error',
+                    'out':doit_run_task.outdata.getvalue(),
+                    'err':doit_run_task.errdata.getvalue(),
+                    'started': '', 'elapsed':0}
+                break
+
+            # read json result
+            with open(result_file, 'r') as json_result:
+                run_results = simplejson.load(json_result)
 
             # update results
             added_something, to_ignore = self.calculate_final_results(run_results)

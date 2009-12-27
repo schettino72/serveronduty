@@ -104,7 +104,7 @@ class Task(object):
                 assert not self._coroutine.gi_running # TODO: remove this
                 # TODO: can i just use next?
                 return self._coroutine.send(None)
-            except StopIteration, e:
+            except StopIteration:
                 return TaskFinished()
         # run is simple function
         else:
@@ -215,7 +215,7 @@ class ProcessTask(Task):
             # you can not get the returncode twice !
             if pid:
                 self.proc.returncode = status
-                logging.debug( "Process pid:%s tid:%s terminated satus:%s" %
+                logging.debug("Process pid:%s tid:%s terminated satus:%s" %
                                (pid, self.tid, status))
         except OSError:
             # system call can't find pid. it's gone. ignore it

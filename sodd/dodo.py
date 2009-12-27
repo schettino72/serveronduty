@@ -6,6 +6,7 @@ DEFAULT_TASKS = ['checker', 'ut']
 
 codeFiles = glob.glob("*.py")
 testFiles = glob.glob("tests/test_*.py")
+to_strip = len('tests/test_')
 pyFiles = codeFiles + testFiles
 
 def task_checker():
@@ -21,7 +22,7 @@ def task_ut():
     for test in testFiles:
         yield {'name': test,
                'actions': ["py.test -v %s" % test],
-               'dependencies': [test, test[5:]],
+               'dependencies': [test, test[to_strip:]],
                'verbosity': 2}
 
 
@@ -35,7 +36,6 @@ def task_coverage():
 
 def task_coverage_module():
     """show coverage for individual modules"""
-    to_strip = len('tests/test_')
     for test in testFiles:
         if not test.startswith('tests/test_'):
             continue

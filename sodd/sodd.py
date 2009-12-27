@@ -100,7 +100,8 @@ class JobGroupTask(Task):
                                   'running', 'unknown', '',
                                   self.integration_id, self.instance_id)
 
-        doit_task = DoitUnstable(self.integration_path, self.task_name)
+        dodo_path = os.path.join(self.integration_path, 'dodo.py')
+        doit_task = DoitUnstable(dodo_path, self.task_name)
         (yield (doit_task, TaskPause(doit_task.tid)))
         json_result = doit_task.final_result.values()
 
