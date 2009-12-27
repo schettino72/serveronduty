@@ -150,7 +150,7 @@ class ProcessTask(Task):
 
     def __str__(self):
         return Task.__str__(self) + "(%s)" % " ".join(self.cmd)
-        
+
     def run(self):
         self.proc = subprocess.Popen(self.cmd, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)

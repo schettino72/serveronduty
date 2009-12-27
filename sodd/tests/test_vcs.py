@@ -4,7 +4,7 @@ import subprocess
 
 import py.test
 
-import vcs
+from .. import vcs
 
 
 # create temporary folder that will get test data

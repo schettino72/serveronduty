@@ -4,10 +4,13 @@ import signal
 
 import py.test
 
-from scheduler import TaskFinished, TaskSleep, TaskPause, TaskCancel
-from scheduler import Scheduler, Task
-from scheduler import PeriodicTask, ProcessTask, PidTask, GroupTask
+from ..scheduler import TaskFinished, TaskSleep, TaskPause, TaskCancel
+from ..scheduler import Scheduler, Task
+from ..scheduler import PeriodicTask, ProcessTask, PidTask, GroupTask
 
+
+THIS_PATH = os.path.dirname(os.path.abspath(__file__))
+SAMPLE_PROC = os.path.join(THIS_PATH, 'sample1.py')
 
 class MockTime(object):
     def __init__(self):
@@ -79,7 +82,7 @@ class TestProcessTask(object):
         assert "python xxx" in str(t1)
 
     def test_run(self):
-        t1 = ProcessTask(['python', 'sample1.py', '0'])
+        t1 = ProcessTask(['python', SAMPLE_PROC, '0'])
         # not started yet
         assert t1.proc is None
         # first run starts the process
@@ -89,13 +92,14 @@ class TestProcessTask(object):
         assert "" == t1.outdata.getvalue()
         # second run does data post-processing, and finishes task
         assert isinstance(t1.run_iteration(), TaskFinished)
+        assert 0 == t1.proc.returncode
         assert "done" == t1.outdata.getvalue().strip()
 
     def test_timeout(self, monkeypatch):
         mytime = MockTime()
         monkeypatch.setattr(time, 'time', mytime.time)
         timeout = 30
-        t1 = ProcessTask(['python', 'sample1.py', '0'], 30)
+        t1 = ProcessTask(['python', SAMPLE_PROC, '0'], 30)
         # not started yet
         assert t1.proc is None
         # first run starts the process
@@ -107,7 +111,7 @@ class TestProcessTask(object):
         assert isinstance(got2, TaskCancel)
 
     def test_terminate(self):
-        t1 = ProcessTask(['python', 'sample1.py', '5'])
+        t1 = ProcessTask(['python', SAMPLE_PROC, '5'])
         t1.run_iteration()
         t1.terminate()
         while(t1.proc.poll() is None):
@@ -117,7 +121,7 @@ class TestProcessTask(object):
         assert 0 != t1.proc.returncode
 
     def test_terminate2(self):
-        t1 = ProcessTask(['python', 'sample1.py', '5'])
+        t1 = ProcessTask(['python', SAMPLE_PROC, '5'])
         t1.run_iteration()
         t1.terminate()
         while(t1.proc.poll() is None):
@@ -126,7 +130,7 @@ class TestProcessTask(object):
 
     def test_terminate_exception(self, monkeypatch):
         # ignore errors trying to terminate a process that is gone
-        t1 = ProcessTask(['python', 'sample1.py', '5'])
+        t1 = ProcessTask(['python', SAMPLE_PROC, '5'])
         t1.run_iteration()
         t1.terminate()
         while(t1.proc.poll() is None):
@@ -137,7 +141,7 @@ class TestProcessTask(object):
 
     def test_get_returncode(self, monkeypatch):
         monkeypatch.setattr(os, 'waitpid', lambda pid, opt: (pid, 0))
-        t1 = ProcessTask(['python', 'sample1.py', '0'])
+        t1 = ProcessTask(['python', SAMPLE_PROC, '0'])
         # not started
         assert None == t1.get_returncode()
         t1.run_iteration()
@@ -149,7 +153,7 @@ class TestProcessTask(object):
         def do_raise(pid, opt):
             raise OSError()
         monkeypatch.setattr(os, 'waitpid', do_raise)
-        t1 = ProcessTask(['python', 'sample1.py', '0'])
+        t1 = ProcessTask(['python', SAMPLE_PROC, '0'])
         t1.run_iteration()
         assert None == t1.get_returncode()
 
