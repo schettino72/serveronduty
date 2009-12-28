@@ -118,7 +118,7 @@ class TestProcessTask(object):
             time.sleep(0.02) # magic number :)
         # terminating the process does not cancel its post processing
         t1.run_iteration()
-        assert 0 != t1.proc.returncode
+        assert -15 == t1.proc.returncode
 
     def test_terminate2(self):
         t1 = ProcessTask(['python', SAMPLE_PROC, '5'])
@@ -138,6 +138,28 @@ class TestProcessTask(object):
         t1.proc.returncode = None #force kill signal to be executed
         t1.terminate()
 
+    def test_kill(self):
+        t1 = ProcessTask(['python', SAMPLE_PROC, '5'])
+        t1.run_iteration()
+        t1.kill()
+        while(t1.proc.poll() is None):
+            time.sleep(0.02) # magic number :)
+        # terminating the process does not cancel its post processing
+        t1.run_iteration()
+        assert -9 == t1.proc.returncode
+
+    def test_watchdog(self):
+        t1 = ProcessTask(['python', SAMPLE_PROC, '5'])
+        signal_received = []
+        t1.terminate = lambda :signal_received.append('term')
+        t1.kill = lambda :signal_received.append('kill')
+        watchdog = Task(t1._watchdog)
+        got = watchdog.run_iteration()
+        assert isinstance(got, TaskSleep)
+        assert ['term'] == signal_received
+        got2 = watchdog.run_iteration()
+        assert isinstance(got2, TaskFinished)
+        assert ['term', 'kill'] == signal_received
 
     def test_get_returncode(self, monkeypatch):
         monkeypatch.setattr(os, 'waitpid', lambda pid, opt: (pid, 0))
@@ -250,7 +272,7 @@ class TestScheduler(object):
         assert tasks[1] == sched.waiting[0]
 
     def test_add_task_scheduled_timestamp(self, sched):
-        t1 = Task((lambda :None), 300)
+        t1 = Task((lambda :None), scheduled=300)
         sched.add_task(t1)
         assert 1 == len(sched.tasks)
         assert 0 == len(sched.ready)
@@ -286,6 +308,20 @@ class TestScheduler(object):
         assert 1 == len(sched.tasks)
         assert 1 == len(sched.ready)
         assert 1 == len(sched.waiting)
+
+    def test_run_task_Sleep_with_delay(self, sched, monkeypatch):
+        mytime = MockTime()
+        monkeypatch.setattr(time, 'time', mytime.time)
+        t1 = Task(lambda : (yield TaskSleep(5)))
+        sched.add_task(t1)
+        assert 1 == len(sched.tasks)
+        assert 1 == len(sched.ready)
+        assert 0 == len(sched.waiting)
+        sched.run_task(t1)
+        assert 1 == len(sched.tasks)
+        assert 1 == len(sched.ready)
+        assert 1 == len(sched.waiting)
+        assert (mytime.current + 5) == t1.scheduled
 
     def test_run_task_Pause(self, sched):
         t1 = Task(lambda :(yield TaskPause()))

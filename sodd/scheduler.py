@@ -23,7 +23,8 @@ class TaskFinished(object):
 
 class TaskSleep(object):
     """sleep current task until scheduled time """
-    pass
+    def __init__(self, delay=None):
+        self.delay = delay
 
 #TODO: merge sleep/pause
 class TaskPause(object):
@@ -42,6 +43,7 @@ class Task(object):
     """Base for all tasks
     @cvar tid_counter (int): provides an unique "task id" for every task
     @ivar tid (int): task id
+    @ivar name (str): task name (not functional role, just info)
     @ivar scheduled (float): when this task should be executed,
                              in seconds since epoch (as given by time.time)
     @ivar lock (str): name of the lock this task holds while running
@@ -56,9 +58,10 @@ class Task(object):
     """
 
     tid_counter = 0
-    def __init__(self, run_method=None, scheduled=None, lock=None):
+    def __init__(self, run_method=None, name=None, scheduled=None, lock=None):
         Task.tid_counter += 1
         self.tid = Task.tid_counter
+        self.name = name
         self.scheduled = scheduled
         self.lock = lock
         self.dependents = []
@@ -77,7 +80,7 @@ class Task(object):
 
 
     def __str__(self):
-        return "%s:%s" % (self.__class__.__name__, self.tid)
+        return "%s:%s:%s:" % (self.__class__.__name__, self.tid, self.name)
 
     def __cmp__(self, other):
         """comparison based on scheduled time"""
@@ -160,7 +163,8 @@ class ProcessTask(Task):
         timeout_task = None
         if self.timeout:
             now = time.time()
-            timeout_task = Task(self.terminate, now + self.timeout)
+            name = "watch dog for %s" % self.proc.pid
+            timeout_task = Task(self._watchdog, name, now + self.timeout)
             sched_operations.append(timeout_task)
         yield sched_operations
         # cancel timeout task
@@ -191,16 +195,29 @@ class ProcessTask(Task):
                 pass
 
 
-    def terminate(self):
-        # TODO: check if sigterm really terminate the process, if not sigkill
+    def _signal(self, sig_name):
         if self.proc.returncode is not None:
             return
-        logging.info("SIGTERM %s" % self.proc.pid)
+        logging.info("%s %s" % (sig_name, self.proc.pid))
 
         try:
-            os.kill(self.proc.pid, signal.SIGTERM)
+            os.kill(self.proc.pid, getattr(signal, sig_name))
         except OSError:
             pass # probably process already terminated. ignore.
+
+    def terminate(self):
+        self._signal("SIGTERM")
+
+    def kill(self):
+        self._signal("SIGKILL")
+
+    def _watchdog(self):
+        """kill hanging process
+        this method should be used as a target to another Task
+        """
+        self.terminate()
+        yield TaskSleep(3) # give 3 seconds to process terminate
+        self.kill()
 
 
     def get_returncode(self):
@@ -273,9 +290,9 @@ class Scheduler(object):
 
 
     def add_task(self, task, delay=0):
-        """delay == 0 => ready
+        """delay == 0 => dont modify scheduled time
            delay < 0 => not ready
-           delay > 0 => scheduled
+           delay > 0 => scheduled delay from now
          """
         self.tasks[task.tid] = task
         # set scheduled time
@@ -334,6 +351,8 @@ class Scheduler(object):
             # sleep
             elif isinstance(op, TaskSleep):
                 reschedule = False
+                if op.delay:
+                    task.scheduled = time.time() + op.delay
                 self.sleep_task(task)
             # pause
             elif isinstance(op, TaskPause):
