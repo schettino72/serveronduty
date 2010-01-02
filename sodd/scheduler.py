@@ -323,7 +323,8 @@ class Scheduler(object):
 
     def sleep_task(self, task):
         # can not be called by a task in ready queue
-        # FIXME raise error
+        ready_tid = [t.tid for t in self.ready]
+        assert task.tid not in ready_tid
         heapq.heappush(self.waiting, task)
 
 

@@ -316,9 +316,9 @@ class TestScheduler(object):
         assert 1 == len(sched.tasks)
         assert 1 == len(sched.ready)
         assert 0 == len(sched.waiting)
-        sched.run_task(t1)
+        sched.run_task(sched.ready.popleft()) # t1
         assert 1 == len(sched.tasks)
-        assert 1 == len(sched.ready)
+        assert 0 == len(sched.ready)
         assert 1 == len(sched.waiting)
 
     def test_run_task_Sleep_with_delay(self, sched, monkeypatch):
@@ -329,9 +329,9 @@ class TestScheduler(object):
         assert 1 == len(sched.tasks)
         assert 1 == len(sched.ready)
         assert 0 == len(sched.waiting)
-        sched.run_task(t1)
+        sched.run_task(sched.ready.popleft()) #t1
         assert 1 == len(sched.tasks)
-        assert 1 == len(sched.ready)
+        assert 0 == len(sched.ready)
         assert 1 == len(sched.waiting)
         assert (mytime.current + 5) == t1.scheduled
 
