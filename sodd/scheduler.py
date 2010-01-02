@@ -222,9 +222,13 @@ class ProcessTask(Task):
 
     def get_returncode(self):
         """check if process terminated its execution and get returncode
-        @returns (int) returncode or None if process is still running
+        @returns (int) returncode or None if process is still running,
+                       or already returned code once
         """
         if not self._started:
+            return None
+        # already returned value before...
+        if self.proc and self.proc.returncode is not None:
             return None
         try:
             pid, status = os.waitpid(self.proc.pid, os.WNOHANG)

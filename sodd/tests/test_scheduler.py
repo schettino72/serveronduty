@@ -169,6 +169,8 @@ class TestProcessTask(object):
         t1.run_iteration()
         # done
         assert 0 == t1.get_returncode()
+        # get only once
+        assert None == t1.get_returncode()
 
     def test_get_returncode_exception(self, monkeypatch):
         # raised expection
