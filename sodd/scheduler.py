@@ -259,7 +259,7 @@ class PidTask(Task):
                 continue
             returncode = t.get_returncode()
             if returncode is not None:
-                self.sched.ready.append(t)
+                self.sched.ready_task(t)
 
 
 
@@ -294,9 +294,11 @@ class Scheduler(object):
 
 
     def add_task(self, task, delay=0):
-        """delay == 0 => dont modify scheduled time
-           delay < 0 => not ready
-           delay > 0 => scheduled delay from now
+        """add task to scheduler (and to ready/scheduled queues
+
+        delay == 0 => dont modify scheduled time
+        delay < 0 => not ready
+        delay > 0 => scheduled delay from now
          """
         self.tasks[task.tid] = task
         # set scheduled time
@@ -306,10 +308,18 @@ class Scheduler(object):
             task.scheduled = None
         # ready/schedule/wait
         if delay == 0 and (task.scheduled is None):
-            self.ready.append(task)
+            self.ready_task(task)
         elif task.scheduled:
             self.sleep_task(task)
 
+
+    def ready_task(self, task):
+        ready_tid = [t.tid for t in self.ready]
+        if task.tid not in ready_tid:
+            self.ready.append(task)
+        else:
+            logging.warn("Tried to add task (%s) to ready queue twice. (%s)" %
+                         (task.tid, ready_tid))
 
     def sleep_task(self, task):
         # can not be called by a task in ready queue
@@ -347,10 +357,10 @@ class Scheduler(object):
                 if task.lock:
                     lock_list = self.locks[task.lock]
                     while lock_list:
-                        self.ready.append(lock_list.popleft())
+                        self.ready_task(lock_list.popleft())
                     del self.locks[task.lock]
                 for dependent_tid in task.dependents:
-                    self.ready.append(self.tasks[dependent_tid])
+                    self.ready_task(self.tasks[dependent_tid])
                 del self.tasks[task.tid]
             # sleep
             elif isinstance(op, TaskSleep):
@@ -371,7 +381,7 @@ class Scheduler(object):
             elif op is not None:
                 raise Exception("returned invalid value %s" % op)
         if reschedule:
-            self.ready.append(task)
+            self.ready_task(task)
 
 
     def loop(self):
@@ -385,7 +395,7 @@ class Scheduler(object):
 
         # add scheduled tasks
         while self.waiting and (self.waiting[0].scheduled <= now):
-            self.ready.append(heapq.heappop(self.waiting))
+            self.ready_task(heapq.heappop(self.waiting))
 
         # execute tasks that are ready to be executed
         if self.ready:

@@ -185,7 +185,8 @@ class TestProcessTask(object):
 class TestPidTask(object):
     def pytest_funcarg__fake_sched(self, request):
         def fake_sched():
-            class Empty(object): pass
+            class Empty(object):
+                def ready_task(self, task): self.ready.append(task)
             fake_sched = Empty()
             fake_sched.tasks = {}
             fake_sched.ready = []
@@ -288,6 +289,15 @@ class TestScheduler(object):
         assert 0 == len(sched.ready)
         assert 0 == len(sched.waiting)
 
+    def test_task_ready(self, sched):
+        t1 = Task(lambda :None)
+        sched.add_task(t1, -1)
+        assert 0 == len(sched.ready)
+        sched.ready_task(t1)
+        assert 1 == len(sched.ready)
+        sched.ready_task(t1)
+        assert 1 == len(sched.ready)
+
     def test_run_task_Task(self, sched):
         t2 = Task(lambda :None)
         t1 = Task(lambda :(yield t2))
@@ -295,9 +305,9 @@ class TestScheduler(object):
         assert 1 == len(sched.tasks)
         assert 1 == len(sched.ready)
         assert 0 == len(sched.waiting)
-        sched.run_task(t1)
+        sched.run_task(sched.ready.popleft()) #t1
         assert 2 == len(sched.tasks)
-        assert 3 == len(sched.ready) # rescheduled t1 + t2
+        assert 2 == len(sched.ready) # rescheduled t1 + t2
         assert 0 == len(sched.waiting)
 
     def test_run_task_Sleep(self, sched):
@@ -362,14 +372,14 @@ class TestScheduler(object):
     def test_run_task_Cancelled(self, sched):
         t1 = Task(lambda :None)
         t2 = Task(lambda : (yield TaskCancel(t1.tid)))
-        sched.add_task(t1)
         sched.add_task(t2)
+        sched.add_task(t1)
         assert 2 == len(sched.tasks)
         assert 2 == len(sched.ready)
         assert 0 == len(sched.waiting)
-        sched.run_task(t2)
+        sched.run_task(sched.ready.popleft()) # t2
         assert 2 == len(sched.tasks)
-        assert 3 == len(sched.ready)
+        assert 2== len(sched.ready)
         assert 0 == len(sched.waiting)
         assert t1.cancelled
 
@@ -387,20 +397,20 @@ class TestScheduler(object):
         sched.add_task(t2)
         assert 0 == len(sched.locks)
         # t1 locks and starts
-        sched.run_task(t1)
+        sched.run_task(sched.ready.popleft()) # t1
         assert 0 == len(sched.locks["lock_x"])
         assert t1._started
-        assert 3 == len(sched.ready)
+        assert 2 == len(sched.ready)
         # t2 is locked / not started
-        sched.run_task(t2)
+        sched.run_task(sched.ready.popleft()) #t2
         assert t2 == sched.locks["lock_x"][0]
         assert not t2._started
-        assert 3 == len(sched.ready)
+        assert 1 == len(sched.ready)
         # t1 finishes / free t2
-        sched.run_task(t1)
+        sched.run_task(sched.ready.popleft()) # t1
         assert "lock_x" not in sched.locks
-        assert 4 == len(sched.ready)
-        assert t2 == sched.ready[-1]
+        assert 1 == len(sched.ready)
+        assert t2 == sched.ready[0]
 
 
 
