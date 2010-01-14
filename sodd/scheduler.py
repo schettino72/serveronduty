@@ -118,6 +118,15 @@ class Task(object):
 
 
 class PeriodicTask(Task):
+    """Periodically repeats a task
+
+    * A new instance of the task is created on each interval.
+    * The created task gets a reference to the Periodic task (attribute parent)
+    * The period is counted from the time the task starts, you need to make
+    sure the interval is bigger than the time necessary to execute tasks,
+    otherwise they will "accumulate" although they are never executed in
+    parallel.
+    """
     def __init__(self, interval, task_class, *args, **kwargs):
         Task.__init__(self)
         self.interval = interval
