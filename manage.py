@@ -18,10 +18,10 @@ def make_cherryserver(hostname="localhost", port=9000):
         """
         server = wsgiserver.CherryPyWSGIServer((hostname, port), make_app())
         try:
-            print "starting server on port %s" % port
+            print "starting server on port %s\n" % port
             server.start()
         except KeyboardInterrupt:
-            print '\nstopping...'
+            print 'stopping...\n'
             server.stop()
     return start_server
 

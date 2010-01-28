@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+
+"""daemonize sodd & websod"""
+
 import os
 import sys
 from getopt import gnu_getopt
@@ -103,7 +106,7 @@ actions:
 
   stop <daemon>:
     stop the daemon
-    
+
     stop sodd                    stop sodd
     stop webserver               stop the webserver
     stop all                     stop sodd and webserver
@@ -121,6 +124,7 @@ options:
 def main():
     opts, args = gnu_getopt(sys.argv[1:], '',
                                          ['file=', 'port=', 'host='])
+    # FIXME remove this default
     # default project file name is `project.yaml`
     proj_name = 'project.yaml'
     port = 9000
