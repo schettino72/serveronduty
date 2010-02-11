@@ -20,7 +20,10 @@ base_path = os.path.abspath(__file__ + '/../pool/')
 
 
 class VcsTask(Task):
+    """check for new revisions on a repository and schedule integration tasks
+    """
     def __init__(self, stuff):
+        # FIXME document stuff
         Task.__init__(self)
         self.stuff = stuff
         self.code = stuff['code']

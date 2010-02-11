@@ -5,5 +5,6 @@ syntax:glob
 
 testbin
 sod.db
+sodd/.doit.db
 sodd/pool
 sodd/trunk

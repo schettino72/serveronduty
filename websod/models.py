@@ -64,8 +64,12 @@ job_table = Table(
     )
 
 
-class SourceTreeRoot(object):
 
+######## models  #########
+
+
+class SourceTreeRoot(object):
+    """Reference to a source code repository"""
     def __init__(self, source_location=''):
         self.source_location = source_location
 
@@ -95,7 +99,7 @@ class Integration(object):
 
 
 class SoddInstance(object):
-
+    """A machine/configuration where the integration is executed"""
     def __init__(self, name='', machine=''):
         self.name = name
         self.machine = machine
@@ -105,7 +109,7 @@ class SoddInstance(object):
 
 
 class JobGroup(object):
-
+    """A group of jobs executed on the same SoddInstance"""
     def __init__(self, started=None, elapsed=None, state='', result='', log='', ):
         self.started = started
         self.elapsed = elapsed
