@@ -9,7 +9,7 @@ from collections import deque
 import heapq
 import logging
 import StringIO
-from inspect import isfunction, ismethod, CO_GENERATOR
+from inspect import isfunction, ismethod
 
 
 # logging
@@ -92,6 +92,7 @@ class Task(object):
         Generator function objects provides same attributes as functions.
         (copied from python2.6 inspect module)
         """
+        CO_GENERATOR = 0x20
         return bool((isfunction(object) or ismethod(object)) and
                     object.func_code.co_flags & CO_GENERATOR)
 
