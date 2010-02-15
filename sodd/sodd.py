@@ -15,8 +15,8 @@ from litemodel import (save_sodd_instance, save_source_tree_root,
                        update_job_group, update_integration)
 
 # TODO: configuration entry for this
-base_path = os.path.abspath(__file__ + '/../pool/')
-
+# base pool path where revision will be saved and integration be executed
+base_path = os.path.abspath('pool/')
 
 
 class VcsTask(Task):
@@ -126,7 +126,10 @@ class JobGroupTask(Task):
 
 def main(project_file):
     project = yaml.load(open(project_file))
-    conn = sqlite3.connect("../sod.db")
+    if not os.path.exists("sod.db"):
+        print "Can not find DB file sod.db"
+        return 1
+    conn = sqlite3.connect("sod.db")
 
     ## register self in sodd_instance table
     ## TODO seems need a rule to name sodd and machine

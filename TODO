@@ -1,7 +1,6 @@
 sodd
 -----
 
-* config pool/trunk locations
 * cron-style scheduled tasks
 * set pythonpath (doit fails because system version is used)
 * stable doit task
