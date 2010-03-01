@@ -13,7 +13,7 @@ from inspect import isfunction, ismethod
 
 
 # logging
-logging.basicConfig(level=logging.DEBUG, format="%(message)s")
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s: %(message)s")
 
 
 # commands passed from task to scheduler
@@ -80,7 +80,10 @@ class Task(object):
 
 
     def __str__(self):
-        return "%s:%s:%s:" % (self.__class__.__name__, self.tid, self.name)
+        class_name = self.__class__.__name__
+        if self.name:
+            return "%s-%s(%s)" % (self.tid, self.name, class_name)
+        return "%s-%s" % (self.tid, class_name)
 
     def __cmp__(self, other):
         """comparison based on scheduled time"""
@@ -128,12 +131,13 @@ class PeriodicTask(Task):
     otherwise they will "accumulate" although they are never executed in
     parallel.
     """
-    def __init__(self, interval, task_class, *args, **kwargs):
-        Task.__init__(self)
+    def __init__(self, interval, task_class, t_args=None, t_kwargs=None,
+                 name=None):
+        Task.__init__(self, name=name)
         self.interval = interval
         self.task_class = task_class
-        self.args = args
-        self.kwargs = kwargs
+        self.args = t_args or []
+        self.kwargs = t_kwargs or {}
 
     def run(self):
         while True:
@@ -388,6 +392,7 @@ class Scheduler(object):
             elif isinstance(op, TaskCancel):
                 if op.tid in self.tasks:
                     self.tasks[op.tid].cancelled = True
+                    #FIXME be more agressive when a task gets cancelled.
             # do nothing
             elif op is not None:
                 raise Exception("returned invalid value %s" % op)
@@ -417,9 +422,22 @@ class Scheduler(object):
         # wait for until next scheduled task is ready
         # TODO pause if (not self.waiting) ?
         interval = (self.waiting[0].scheduled - now) if self.waiting else 60
-        logging.debug("sleeping %s" % interval)
+        logging.debug("*** sleeping %s" % interval)
+        logging.info(self.print_state())
         time.sleep(interval)
 
+    def print_state(self):
+        out = "\n/--------------------------------\n"
+        if self.waiting:
+            out += "WAITING: \n"
+            for wait in self.waiting:
+                #TODO do not display cancelled tasks
+                out += "%s -> %ss\n" %(str(wait), wait.scheduled - time.time())
+        if self.locks:
+            for lock, values in self.locks.iteritems():
+                out += "Lock:%s => %s\n"% (lock, ", ".join(str(t) for t in values))
+        out += "/--------------------------------\n\n"
+        return out
 
 # TODO
 #  RPC/webserver

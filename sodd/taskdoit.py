@@ -5,6 +5,10 @@ import simplejson
 
 from scheduler import Task, ProcessTask, TaskPause
 
+class DoitStable(Task):
+    """wrap doit integration"""
+
+
 class DoitUnstable(Task):
     """wrap doit integration with some logic to deal with unstable tests
 
@@ -47,7 +51,7 @@ class DoitUnstable(Task):
         added_something = False
         to_ignore = []
         for res in run_results['tasks']:
-            print "============>", res['name'], " +++> ", res['result']
+            #print "============>", res['name'], " +++> ", res['result']
 
             # ignore tasks that were not executed
             if res['result'] in ('up-to-date', 'ignore'):

@@ -66,7 +66,7 @@ class TestPeriodicTask(object):
     def test_run(self, monkeypatch):
         mytime = MockTime()
         monkeypatch.setattr(time, 'time', mytime.time)
-        periodic = PeriodicTask(10, Task, lambda :None)
+        periodic = PeriodicTask(10, Task, [lambda :None])
         got = periodic.run_iteration()
         assert isinstance(got[0], Task)
         assert got[0].scheduled is None

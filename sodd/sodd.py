@@ -4,6 +4,7 @@ import shutil
 import time
 import datetime
 import sqlite3
+import logging
 
 import yaml
 
@@ -18,6 +19,7 @@ from litemodel import (save_sodd_instance, save_source_tree_root,
 # base pool path where revision will be saved and integration be executed
 base_path = os.path.abspath('pool/')
 
+TASK_TIMEOUT = 60 * 60
 
 class VcsTask(Task):
     """check for new revisions on a repository and schedule integration tasks
@@ -31,7 +33,7 @@ class VcsTask(Task):
     def run(self):
         revs = self.code.get_new_revisions(self.parent.last_rev)
         for a_rev in revs:
-            print "got rev: %s" % a_rev['revision']
+            logging.info("*** VcsTask got rev: %s" % a_rev['revision'])
             yield IntegrationTask(self.stuff, a_rev['revision'],
                       a_rev['committer'], a_rev['comment'], lock="integration")
         if(revs):
@@ -40,7 +42,8 @@ class VcsTask(Task):
 
 class IntegrationTask(Task):
     def __init__(self, stuff, revision, committer, comment, lock=None):
-        Task.__init__(self, lock=lock)
+        name = "r%s" % revision
+        Task.__init__(self, lock=lock, name=name)
         self.conn = stuff['conn']
         self.project = stuff['project']
         self.code = stuff['code']
@@ -51,8 +54,8 @@ class IntegrationTask(Task):
         self.committer = committer
         self.comment = comment
 
+
     def run(self):
-        print "starting integration %s" % self.revision
         integration_id = save_integration(
             self.conn.cursor(), self.revision, 'running', 'unknown',
             self.committer, self.comment, self.source_tree_id)
@@ -69,13 +72,13 @@ class IntegrationTask(Task):
         integration_result = 'success'
         for task in self.project['tasks']:
             job_task = JobGroupTask(self.conn, task, integration_id,
-                                    integration_path, self.instance_id)
+                        integration_path, self.instance_id, self.name)
             (yield (job_task, TaskPause(job_task.tid)))
             if job_task.group_result != 'success':
                 integration_result = 'fail'
 
 
-        print "finished integration %s" % self
+        logging.info("*** IntegrationTask %s finished" % self.revision)
         update_integration(self.conn.cursor(), integration_id,
                            integration_result)
 
@@ -83,8 +86,9 @@ class IntegrationTask(Task):
 
 class JobGroupTask(Task):
     def __init__(self, conn, task_name, integration_id, integration_path,
-                 instance_id):
-        Task.__init__(self)
+                 instance_id, rev_str):
+        name = "%s.%s" % (rev_str, task_name)
+        Task.__init__(self, name=name)
         self.conn = conn
         self.task_name = task_name
         self.integration_id = integration_id
@@ -92,8 +96,8 @@ class JobGroupTask(Task):
         self.instance_id = instance_id
         self.group_result = None
 
+
     def run(self):
-        print "starting task: ", self.task_name
         self.group_result = 'success' # optimistic
 
         started_on = time.time()
@@ -104,7 +108,9 @@ class JobGroupTask(Task):
                                   self.integration_id, self.instance_id)
 
         dodo_path = os.path.join(self.integration_path, 'dodo.py')
-        doit_task = DoitUnstable(dodo_path, self.task_name)
+        doit_task = DoitUnstable(dodo_path, self.task_name,
+                                 timeout=TASK_TIMEOUT)
+        doit_task.name = self.name
         (yield (doit_task, TaskPause(doit_task.tid)))
         json_result = doit_task.final_result.values()
 
@@ -127,7 +133,7 @@ class JobGroupTask(Task):
 def main(project_file):
     project = yaml.load(open(project_file))
     if not os.path.exists("sod.db"):
-        print "Can not find DB file sod.db"
+        logging.error("Can not find DB file sod.db")
         return 1
     conn = sqlite3.connect("sod.db")
 
@@ -156,7 +162,7 @@ def main(project_file):
              'code':code,
              'source_tree_id':source_tree_id,
              'instance_id':instance_id}
-    loop_vcs = PeriodicTask(60, VcsTask, stuff)
+    loop_vcs = PeriodicTask(60, VcsTask, [stuff], name="Check trunk")
     loop_vcs.last_rev = project['start_rev']
 
     sched = Scheduler()
