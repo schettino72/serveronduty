@@ -17,6 +17,7 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s: %(message)s")
 
 
 # commands passed from task to scheduler
+# FIXME this is different category that should not be used directly by tasks
 class TaskFinished(object):
     """indicate this task has finished"""
     pass
@@ -164,6 +165,7 @@ class ProcessTask(Task):
         self.outdata = StringIO.StringIO()
         self.errdata = StringIO.StringIO()
         self.timeout = timeout
+        self._force_killed = False
 
     def __str__(self):
         return Task.__str__(self) + "(%s)" % " ".join(self.cmd)
@@ -184,6 +186,12 @@ class ProcessTask(Task):
         # cancel timeout task
         if timeout_task:
             yield TaskCancel(timeout_task.tid)
+
+        if self._force_killed:
+            self.warning("force killed task:%s" % self)
+            # GIVE UP everything... it might hang again if you try to
+            # read its output...
+            return
 
         # TODO this is getting tricky... and ugly see:
         # http://groups.google.com/group/comp.lang.python/browse_thread/thread/9e19f3a79449f536/
@@ -229,8 +237,9 @@ class ProcessTask(Task):
         """kill hanging process
         this method should be used as a target to another Task
         """
+        self._force_killed = True
         self.terminate()
-        yield TaskSleep(3) # give 3 seconds to process terminate
+        yield TaskSleep(20) # give some time to process terminate
         self.kill()
 
 
