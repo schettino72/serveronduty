@@ -12,12 +12,18 @@ from xml.dom import minidom
 
 def check_call_get(cmd):
     """Run command and return stdout, raise Exception if cmd fails"""
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    out = proc.communicate()[0]
-    if proc.returncode:
-        raise Exception(proc.returncode, cmd)
-    return out
-
+    MAX_TRY = 3
+    # FIXME
+    # It is very common that SVN commands just fail sometimes.
+    # by just just retry it... should handle in a way that process does not
+    # stop because of SVN not being available.
+    for x_try in range(3):
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        out = proc.communicate()[0]
+        if not proc.returncode:
+            return out
+        print "ERROR VCS: %s try cmd:(%s) got %s" % (x_try, cmd, proc.returncode)
+    raise Exception(proc.returncode, cmd)
 
 # tested with hg 1.3.1
 class HG(object):
