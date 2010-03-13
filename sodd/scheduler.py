@@ -188,7 +188,7 @@ class ProcessTask(Task):
             yield TaskCancel(timeout_task.tid)
 
         if self._force_killed:
-            self.warning("force killed task:%s" % self)
+            logging.warn("force killed task:%s" % self)
             # GIVE UP everything... it might hang again if you try to
             # read its output...
             return
