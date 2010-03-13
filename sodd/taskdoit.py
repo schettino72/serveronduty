@@ -1,6 +1,7 @@
 from __future__ import with_statement
 
 import os
+import logging
 import simplejson
 
 from scheduler import Task, ProcessTask, TaskPause
@@ -94,6 +95,7 @@ class DoitUnstable(Task):
                    self.doit_task]
         ignore_cmd = ["doit", "-f", self.dodo_path, "ignore"]
 
+        doit_failed = False # doit command failed (invalid json output)
         while True:
             # remove results from previous runs
             if os.path.exists(result_file):
@@ -115,7 +117,19 @@ class DoitUnstable(Task):
 
             # read json result
             with open(result_file, 'r') as json_result:
-                run_results = simplejson.load(json_result)
+                try:
+                    run_results = simplejson.load(json_result)
+                except ValueError, e:
+                    logging.error("DOIT execution error.")
+                    logging.error("%s:%s" % (self.dodo_path, self.doit_task))
+                    logging.error(e)
+                    if doit_failed:
+                        logging.error("second error, give up.")
+                        break
+                    else:
+                        logging.error("retrying...")
+                        doit_failed = True
+                        continue
 
             # update results
             added_something, to_ignore = self.calculate_final_results(run_results)
