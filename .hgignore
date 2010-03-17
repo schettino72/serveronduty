@@ -3,6 +3,8 @@ syntax:glob
 *.pyc
 .coverage
 
+ServerOnDuty.egg-info
+
 testbin
 sod.db
 sodd/.doit.db
