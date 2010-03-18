@@ -19,6 +19,16 @@ def update_integration(cursor, id_, result, state='finished'):
                    (state, result, id_))
     cursor.connection.commit()
 
+def get_last_finished_integration(cursor):
+    cursor.execute('''
+        SELECT version FROM integration WHERE state='finished' 
+            order by version desc''')
+    res = cursor.fetchone()
+    if res:
+        return int(res[0])
+    else:
+        return None
+
 
 #
 # source_tree_root

@@ -13,7 +13,8 @@ from scheduler import Task, PeriodicTask, TaskPause, Scheduler
 from taskdoit import DoitUnstable
 from litemodel import (save_sodd_instance, save_source_tree_root,
                        save_integration, save_job_group, save_job,
-                       update_job_group, update_integration)
+                       update_job_group, update_integration,
+                       get_last_finished_integration)
 
 # TODO: configuration entry for this
 # base pool path where revision will be saved and integration be executed
@@ -163,8 +164,8 @@ def main(project_file):
              'source_tree_id':source_tree_id,
              'instance_id':instance_id}
     loop_vcs = PeriodicTask(60, VcsTask, [stuff], name="Check trunk")
-    loop_vcs.last_rev = project['start_rev']
-
+    loop_vcs.last_rev = get_last_finished_integration(conn.cursor()) or \
+                                        project['start_rev'] 
     sched = Scheduler()
     sched.add_task(loop_vcs)
     sched.loop()
