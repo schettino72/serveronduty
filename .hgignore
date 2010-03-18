@@ -8,3 +8,6 @@ ServerOnDuty.egg-info
 testbin
 sod.db
 sodd/.doit.db
+pool
+tags
+
