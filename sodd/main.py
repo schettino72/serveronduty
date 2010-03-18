@@ -8,13 +8,13 @@ import logging
 
 import yaml
 
-import vcs
-from scheduler import Task, PeriodicTask, TaskPause, Scheduler
-from taskdoit import DoitUnstable
-from litemodel import (save_sodd_instance, save_source_tree_root,
-                       save_integration, save_job_group, save_job,
-                       update_job_group, update_integration,
-                       get_last_finished_integration)
+from sodd import vcs
+from sodd.scheduler import Task, PeriodicTask, TaskPause, Scheduler
+from sodd.taskdoit import DoitUnstable
+from sodd.litemodel import (save_sodd_instance, save_source_tree_root,
+                            save_integration, save_job_group, save_job,
+                            update_job_group, update_integration,
+                            get_last_finished_integration)
 
 # TODO: configuration entry for this
 # base pool path where revision will be saved and integration be executed
@@ -131,7 +131,7 @@ class JobGroupTask(Task):
 
 
 
-def main(project_file):
+def run_ci(project_file):
     project = yaml.load(open(project_file))
     if not os.path.exists("sod.db"):
         logging.error("Can not find DB file sod.db")
@@ -169,13 +169,3 @@ def main(project_file):
     sched = Scheduler()
     sched.add_task(loop_vcs)
     sched.loop()
-
-
-
-
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) != 2:
-        print 'usage: python sodd.py <project.yaml>'
-    proj_file = sys.argv[1]
-    main(proj_file)
