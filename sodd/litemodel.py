@@ -26,7 +26,8 @@ def get_last_revision_id(cursor):
     if res:
         return int(res[0])
     else:
-        return None
+        # if integration table have no rows, return 0 as default
+        return 0
 
 
 #

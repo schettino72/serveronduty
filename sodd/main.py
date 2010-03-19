@@ -174,8 +174,17 @@ def run_ci(project_file):
              'source_tree_id':source_tree_id,
              'instance_id':instance_id}
     loop_vcs = PeriodicTask(60, VcsTask, [stuff], name="Check trunk")
-    loop_vcs.last_rev = get_last_revision_id(conn.cursor()) or \
-                                        project['start_rev'] 
+
+    ## Decide which is the first revision that sodd will execute 
+    ## one revision number is from <project>.yaml, value of start_rev
+    ## the other is from database, the last revision that sodd have ran
+    ## just get the larger one to avoid executing same revision twice
+    last_revision_id = get_last_revision_id(conn.cursor())
+    if last_revision_id >= project['start_rev']:
+        loop_vcs.last_rev = last_revision_id
+    else:
+        loop_vcs.last_rev = project['start_rev']
+
     sched = Scheduler()
     sched.add_task(loop_vcs)
     sched.loop()
