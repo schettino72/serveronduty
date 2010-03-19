@@ -15,7 +15,7 @@ from sodd.sendemail import sendemail
 from sodd.litemodel import (save_sodd_instance, save_source_tree_root,
                             save_integration, save_job_group, save_job,
                             update_job_group, update_integration,
-                            get_last_finished_integration,
+                            get_last_revision_id,
                             get_failed_job)
 
 # TODO: configuration entry for this
@@ -180,7 +180,7 @@ def run_ci(project_file):
              'source_tree_id':source_tree_id,
              'instance_id':instance_id}
     loop_vcs = PeriodicTask(60, VcsTask, [stuff], name="Check trunk")
-    loop_vcs.last_rev = get_last_finished_integration(conn.cursor()) or \
+    loop_vcs.last_rev = get_last_revision_id(conn.cursor()) or \
                                         project['start_rev'] 
     sched = Scheduler()
     sched.add_task(loop_vcs)

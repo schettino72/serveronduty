@@ -19,10 +19,9 @@ def update_integration(cursor, id_, result, state='finished'):
                    (state, result, id_))
     cursor.connection.commit()
 
-def get_last_finished_integration(cursor):
+def get_last_revision_id(cursor):
     cursor.execute('''
-        SELECT version FROM integration WHERE state='finished' 
-            order by version desc''')
+        SELECT version FROM integration order by version desc''')
     res = cursor.fetchone()
     if res:
         return int(res[0])
