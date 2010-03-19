@@ -11,10 +11,12 @@ import yaml
 from sodd import vcs
 from sodd.scheduler import Task, PeriodicTask, TaskPause, Scheduler
 from sodd.taskdoit import DoitUnstable
+from sodd.sendemail import sendemail
 from sodd.litemodel import (save_sodd_instance, save_source_tree_root,
                             save_integration, save_job_group, save_job,
                             update_job_group, update_integration,
-                            get_last_finished_integration)
+                            get_last_finished_integration,
+                            get_failed_job)
 
 # TODO: configuration entry for this
 # base pool path where revision will be saved and integration be executed
@@ -83,6 +85,20 @@ class IntegrationTask(Task):
         update_integration(self.conn.cursor(), integration_id,
                            integration_result)
 
+        ## send email for every changeset
+        from_ = 'splittingserver@exoweb.net'
+        to = 'kevin@exoweb.net'
+        #to = 'splittingserver@exoweb.net'
+        subject = '[ServerOnDuty] %s @r%s -- %s' % \
+                    (integration_result, self.revision, self.committer)
+        content = ''
+        if integration_result == 'fail':
+            result = get_failed_job(self.conn.cursor(), integration_id)
+            for each in result:
+                content += 'test_name: %s\nresult: %s\n' \
+                           'logs:\n\n%s\n\n\n' % each
+
+        sendemail(from_, to, subject, content)
 
 
 class JobGroupTask(Task):

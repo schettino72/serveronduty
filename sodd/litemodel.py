@@ -88,3 +88,18 @@ def save_job(cursor, result, type_, id_):
              # temporarily
              'create_status', True, id_))
     cursor.connection.commit()
+
+def get_failed_job(cursor, integration_id):
+    cursor.execute('''SELECT id FROM job_group WHERE integration_id=? 
+                      AND result=?''',
+                      (integration_id, 'fail'))
+    res = cursor.fetchall()
+    id_ = []
+    for each in res:
+        id_.append('%s' % each[0])
+    job_group_id = '(' + ','.join(id_) + ')'
+    result_in_statement = "('fail', 'unstable')"
+    cursor.execute('''SELECT name, result, log FROM job WHERE result in %s 
+                      AND job_group_id in %s''' %
+                      (result_in_statement, job_group_id))
+    return cursor.fetchall()
