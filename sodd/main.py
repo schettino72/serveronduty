@@ -1,4 +1,5 @@
 """ServerOnDuty daemon aka sodd"""
+import sys
 import os
 import shutil
 import time
@@ -58,19 +59,26 @@ class IntegrationTask(Task):
 
 
     def run(self):
+        # save integration started on DB
         integration_id = save_integration(
             self.conn.cursor(), self.revision, 'running', 'unknown',
             self.committer, self.comment, self.source_tree_id)
 
-        # export revision to be tested
+        # export source-code on revision to be tested
         integration_path = base_path + '/' + self.revision
         self.code.archive(self.revision, integration_path)
-        # FIXME NBET stuff
-        #shutil.copy(base_path + "/dodo.py", integration_path + "/dodo.py")
-        #shutil.copy(integration_path + '/local_config.py.DEVELOPER',
-        #             integration_path + '/local_config.py')
 
+        ## execute pre-integration steps
+        # add current working directory to sys.path
+        cwd = os.path.abspath(os.getcwd())
+        sys.path.insert(0, cwd)
+        for setup in self.project['pre-integration']:
+            module_name, fun_name = setup.split(':')
+            module = __import__(module_name)
+            function = getattr(module, fun_name)
+            function(integration_path, self)
 
+        # execute integrations
         integration_result = 'success'
         for task in self.project['tasks']:
             job_task = JobGroupTask(self.conn, task, integration_id,
@@ -80,6 +88,7 @@ class IntegrationTask(Task):
                 integration_result = 'fail'
 
 
+        # log and save integration result
         logging.info("*** IntegrationTask %s finished" % self.revision)
         update_integration(self.conn.cursor(), integration_id,
                            integration_result)
