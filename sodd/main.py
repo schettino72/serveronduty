@@ -95,13 +95,16 @@ class IntegrationTask(Task):
 
         # If email_from/email_to both defined in <project>.yaml file,
         # will send email to developers for every changeset
-        if 'email_from' in self.project.keys() and \
-                                       'email_to' in self.project.keys():
-            send_notify_email(self.project['email_from'],
-                              self.project['email_to'],
-                              integration_id, integration_result,
-                              self.revision, self.committer,
-                              self.conn.cursor())
+        if 'email_from' in self.project and 'email_to' in self.project:
+            logging.info("*** Start to send result of revision %s in email"
+                                                    % self.revision)
+            is_sent = send_notify_email(self.project['email_from'],
+                                        self.project['email_to'],
+                                        integration_id, integration_result,
+                                        self.revision, self.committer,
+                                        self.conn.cursor())
+            if is_sent:
+                logging.info("*** email sent out")
 
 
 class JobGroupTask(Task):
