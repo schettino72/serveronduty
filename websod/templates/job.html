@@ -11,3 +11,14 @@ Job log:<br/>
 <pre style="white-space: -moz-pre-wrap;">
 ${job.log | h}
 </pre>
+
+
+<div id="elapsed-graph" style="width:600px;height:300px"></div>
+
+<script id="source" language="javascript" type="text/javascript">
+$(function () {
+    var data = ${history}
+    $.plot($("#elapsed-graph"), [ data ]);
+});
+</script>
+

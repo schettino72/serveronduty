@@ -46,7 +46,8 @@ def integration(request, id):
 @expose('/job/<int:id>')
 def job(request, id):
     the_job = session.query(Job).get(id)
-    return serve_template('job.html', job=the_job)
+    elapsed_history = the_job.get_elapsed_history()
+    return serve_template('job.html', job=the_job, history=elapsed_history)
 
 
 

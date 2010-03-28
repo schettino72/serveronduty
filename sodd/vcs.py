@@ -17,7 +17,7 @@ def check_call_get(cmd):
     # It is very common that SVN commands just fail sometimes.
     # by just just retry it... should handle in a way that process does not
     # stop because of SVN not being available.
-    for x_try in range(3):
+    for x_try in range(MAX_TRY):
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         out = proc.communicate()[0]
         if not proc.returncode:

@@ -135,7 +135,9 @@ class Job(object):
     def __repr__(self):
         return '<Job %s>' % self.name
 
-
+    def get_elapsed_history(self):
+        res = session.query(Job).filter_by(name=self.name).order_by(Job.id)[:50]
+        return [[int(i.job_group.integration.version), i.elapsed] for i in res]
 
 mapper(SourceTreeRoot, source_tree_root_table)
 
