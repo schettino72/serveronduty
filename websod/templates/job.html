@@ -14,12 +14,14 @@ ${job.log | h}
 
 
 <div id="elapsed-graph" class="elapsed-graph"></div>
-<div class="elapsed-graph-label">Version number</div>
+<div class="elapsed-graph-label">Revision number</div>
 
 <script id="source" language="javascript" type="text/javascript">
 $(function () {
-    var data = ${history}
-    $.plot($("#elapsed-graph"), [ {data: data, label: 'runtime in ms'} ]);
+    var data = ${history};
+    var this_rev = [[${job.job_group.integration.version}, ${job.elapsed}]];
+    $.plot($("#elapsed-graph"), [ {data: data, label: 'runtime in sec'},
+                                  {data: this_rev, points: { show: true }}]);
 });
 </script>
 

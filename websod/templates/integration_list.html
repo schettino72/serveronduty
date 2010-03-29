@@ -11,6 +11,12 @@
     <th>Commit comment</th>
   </tr>
 
+<span>
+  <div id="integration-eplased-graph" class="elapsed-graph"></div>
+  <div class="elapsed-graph-label">Revision number</div>
+</span>
+
+
 %for intg in integrations:
   <tr class="${intg.result}_tablerow">
     <td><a href="${ url_for('integration', id=intg.id) }">${intg.version}</a></td>
@@ -35,3 +41,10 @@
 %endif
 
 
+<script type="text/javascript" language="javascript">
+$(function () {
+    var history_data = ${history}
+    $.plot($("#integration-eplased-graph"),
+            [{data: history_data, label: "runtime in min"}]);
+    });
+</script>

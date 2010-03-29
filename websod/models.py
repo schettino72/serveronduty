@@ -81,7 +81,7 @@ class Integration(object):
 
     def __init__(self, version='', state='', result='',
                  owner='', comment=''):
-        self.version = version
+        self.version = version #TODO rename as "revision" type int
         self.state = state
         self.result = result
         self.owner = owner
@@ -99,17 +99,33 @@ class Integration(object):
                             if a_job.result == result_str])
         return retlist
 
-    def get_elapsed_history(self):
+    @staticmethod
+    def get_elapsed_history():
         #the last integrations
-        res = session.query(Integration).filter(Integration.version<self.version).\
-                 order_by(Integration.version.desc()).limit(NO_OF_HISTORY_LAST_VALUES)
-        #calculate the sum of all jobs for every integration
-        sum_array = []
-        for an_integration in res:
-            sum_value = session.query(functions.sum(Job.elapsed)).join(JobGroup).join(Integration).filter(Integration.id==an_integration.id).scalar()
-            print sum_value
-            sum_array.append([int(an_integration.version), sum_value])
-        return sum_array
+        #TODO add limit(NO_OF_HISTORY_LAST_VALUES
+        res = session.query(Integration).order_by(Integration.version.desc()).all()
+
+#         #FIXME use SQL to calculate this
+#         res = session.query(Integration).filter(Integration.version<self.version).\
+#                  order_by(Integration.version.desc()).limit(NO_OF_HISTORY_LAST_VALUES)
+#         #calculate the sum of all jobs for every integration
+#         sum_array = []
+#         for an_integration in res:
+#             sum_value = session.query(functions.sum(Job.elapsed)).join(JobGroup).join(Integration).filter(Integration.id==an_integration.id).scalar()
+#             print sum_value
+#             sum_array.append([int(an_integration.version), sum_value])
+#         return sum_array
+
+        result = []
+        for rev in res:
+            total = 0
+            for jg in rev.jobgroups:
+                # FIXME there are some unicode values in this column!
+                if type(jg.elapsed) is not float:
+                    continue
+                total += jg.elapsed
+            result.append([int(rev.version), total/60.0])
+        return result
 
 
 class SoddInstance(object):
@@ -150,7 +166,9 @@ class Job(object):
         return '<Job %s>' % self.name
 
     def get_elapsed_history(self):
-        res = session.query(Job).join(JobGroup).join(Integration).filter(Job.name==self.name).filter(Integration.version<self.job_group.integration.version).order_by(Integration.version.desc()).limit(NO_OF_HISTORY_LAST_VALUES)
+        #res = session.query(Job).join(JobGroup).join(Integration).filter(Job.name==self.name).filter(Integration.version<self.job_group.integration.version).order_by(Integration.version.desc()).limit(NO_OF_HISTORY_LAST_VALUES)
+        # FIXME do not show all integrations
+        res = session.query(Job).filter_by(name=self.name).order_by(Job.id)
         return [[int(i.job_group.integration.version), i.elapsed] for i in res]
 
 mapper(SourceTreeRoot, source_tree_root_table)

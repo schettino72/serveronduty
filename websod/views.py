@@ -22,7 +22,8 @@ from datetime import timedelta, datetime
 @expose('/integration/')
 def integration_list(request):
     integrations = session.query(Integration).order_by(Integration.id.desc()).all()
-    return serve_template('integration_list.html', integrations=integrations)
+    return serve_template('integration_list.html', integrations=integrations,
+                          history=Integration.get_elapsed_history())
 
 
 
@@ -40,7 +41,7 @@ def integration(request, id):
             failed_jobs=sorted(failed_jobs, key=lambda k: k.name),
             unstable_jobs=sorted(unstable_jobs, key=lambda k: k.name),
             success_jobs=sorted(success_jobs, key=lambda k: k.name),
-            history=integration.get_elapsed_history())
+                          )
 
 
 
