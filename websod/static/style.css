@@ -64,3 +64,14 @@ h2 {
     color: red;
 }
 
+.elapsed-graph {
+	width: 600px;
+	height: 300px;
+}
+
+.elapsed-graph-label {
+	font-size: 14px;
+	padding-top: 5px;
+	text-align: center;
+	width: 600px;
+}

@@ -39,7 +39,8 @@ def integration(request, id):
     return serve_template('integration.html', integration=integration,
             failed_jobs=sorted(failed_jobs, key=lambda k: k.name),
             unstable_jobs=sorted(unstable_jobs, key=lambda k: k.name),
-            success_jobs=sorted(success_jobs, key=lambda k: k.name))
+            success_jobs=sorted(success_jobs, key=lambda k: k.name),
+            history=integration.get_elapsed_history())
 
 
 

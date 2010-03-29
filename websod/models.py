@@ -1,6 +1,7 @@
 from sqlalchemy import Table, Column, ForeignKey
 from sqlalchemy import String, Integer, Text, DateTime, Float, Boolean
 from sqlalchemy.orm import mapper, relation
+from sqlalchemy.sql import functions
 from websod.utils import metadata, session
 
 source_tree_root_table = Table(
@@ -67,6 +68,8 @@ job_table = Table(
 
 ######## models  #########
 
+NO_OF_HISTORY_LAST_VALUES = 50
+
 
 class SourceTreeRoot(object):
     """Reference to a source code repository"""
@@ -94,8 +97,19 @@ class Integration(object):
             retlist.extend(
                 [a_job for a_job in a_jobgroup.jobs
                             if a_job.result == result_str])
-
         return retlist
+
+    def get_elapsed_history(self):
+        #the last integrations
+        res = session.query(Integration).filter(Integration.version<self.version).\
+                 order_by(Integration.version.desc()).limit(NO_OF_HISTORY_LAST_VALUES)
+        #calculate the sum of all jobs for every integration
+        sum_array = []
+        for an_integration in res:
+            sum_value = session.query(functions.sum(Job.elapsed)).join(JobGroup).join(Integration).filter(Integration.id==an_integration.id).scalar()
+            print sum_value
+            sum_array.append([int(an_integration.version), sum_value])
+        return sum_array
 
 
 class SoddInstance(object):
@@ -136,7 +150,7 @@ class Job(object):
         return '<Job %s>' % self.name
 
     def get_elapsed_history(self):
-        res = session.query(Job).filter_by(name=self.name).order_by(Job.id)[:50]
+        res = session.query(Job).join(JobGroup).join(Integration).filter(Job.name==self.name).filter(Integration.version<self.job_group.integration.version).order_by(Integration.version.desc()).limit(NO_OF_HISTORY_LAST_VALUES)
         return [[int(i.job_group.integration.version), i.elapsed] for i in res]
 
 mapper(SourceTreeRoot, source_tree_root_table)

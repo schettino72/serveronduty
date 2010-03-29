@@ -8,6 +8,11 @@ Result: ${integration.result} <br/>
 Owner: ${integration.owner} <br/>
 Comment: <pre>${integration.comment}</pre><br/>
 
+<span>
+  <div id="integration-eplased-graph" class="elapsed-graph"></div>
+  <div class="elapsed-graph-label">Version number</div>
+</span>
+
 <span class="failed">Failed jobs</span>
 <ul>
 %for job in failed_jobs:
@@ -28,3 +33,9 @@ Comment: <pre>${integration.comment}</pre><br/>
     <li class=${job.result}><a href="/job/${job.id}">${job.name}</a></li>
 %endfor
 </ul>
+<script type="text/javascript" language="javascript">
+	$(function () {
+		var history_data = ${history}
+		$.plot($("#integration-eplased-graph"), [{data: history_data, label: "runtime in ms"}]);
+	});
+</script>
