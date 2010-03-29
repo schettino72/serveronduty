@@ -91,13 +91,17 @@ class Integration(object):
         return '<Integration (%s)%s - %s:%s>' % (
             self.id, self.version, self.state, self.result)
 
+    def getJobs(self):
+        if not hasattr(self, 'jobs_list'):
+            jobs = []
+            for a_jobgroup in self.jobgroups:
+                jobs.extend(a_jobgroup.jobs)
+            self.jobs_list = jobs
+        return self.jobs_list
+
     def getJobsByResult(self, result_str):
-        retlist = []
-        for a_jobgroup in self.jobgroups:
-            retlist.extend(
-                [a_job for a_job in a_jobgroup.jobs
-                            if a_job.result == result_str])
-        return retlist
+        return filter(lambda job: job.result == result_str,
+                      self.getJobs())
 
     @staticmethod
     def get_elapsed_history():

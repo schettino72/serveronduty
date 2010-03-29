@@ -2,7 +2,7 @@
 
 <h2>Integrations</h2>
 
-<table>
+<table border="0" cellspacing="0" cellpadding="0">
   <tr>
     <th>Version</th>
     <th>Result</th>
@@ -23,7 +23,18 @@
     <td>${intg.result}</td>
     <td>${intg.state}</td>
     <td>${intg.owner}</td>
-    <td><pre>${intg.comment}</pre></td>
+    <td>
+        <pre>${intg.comment}</pre>
+        %for jobs in intg.new_failures:
+            <pre style="color: red">New failures: ${jobs.name}</pre>
+        %endfor
+        %for jobs in intg.unstables:
+            <pre style="color: blue">Unstable: ${jobs.name}</pre>
+        %endfor
+        %for jobs in intg.disappeared_failures:
+            <pre style="color: green">Disappearred failures: ${jobs.name}</pre>
+        %endfor
+    </td>
   </tr>
 %endfor
 </table>

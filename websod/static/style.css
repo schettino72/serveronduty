@@ -64,6 +64,10 @@ h2 {
     color: red;
 }
 
+td {
+    padding: 0 2px 0 2px;
+    border-bottom:2px dashed gray;
+}
 .elapsed-graph {
 	width: 600px;
 	height: 300px;

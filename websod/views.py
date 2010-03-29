@@ -22,9 +22,45 @@ from datetime import timedelta, datetime
 @expose('/integration/')
 def integration_list(request):
     integrations = session.query(Integration).order_by(Integration.id.desc()).all()
+    _massageIntegrations(integrations)
     return serve_template('integration_list.html', integrations=integrations,
                           history=Integration.get_elapsed_history())
 
+
+def _massageIntegrations(integrations):
+    for i in xrange(len(integrations) - 1):
+        new_come_jobs, disappeared_jobs = _compareIntegrations(integrations[i], integrations[i+1])
+        integrations[i].new_failures = filter(lambda job: job.result == 'fail', new_come_jobs)
+        integrations[i].unstables = filter(lambda job: job.result == 'unstable', integrations[i].getJobs())
+        integrations[i].disappeared_failures = filter(lambda job: job.result == 'fail', disappeared_jobs)
+    integrations[-1].new_failures = []
+    integrations[-1].disappeared_failures = []
++    for i in xrange(len(integrations)):
+        integrations[i].unstables = filter(lambda job: job.result == 'unstable', integrations[i].getJobs())
+
+def _compareIntegrations(new_integ, old_integ):
+    # job.log is not included in comparsion since the error log contain
+    # file path which is different between revisions.
+    _get_job_info = lambda job: (job.name, job.type, job.result, job.state)
+
+    new_come_jobs = []
+    old_jobs = set()
+    for job in old_integ.getJobs():
+        old_jobs.add(_get_job_info(job))
+
+    for job in new_integ.getJobs():
+        job_info = _get_job_info(job)
+        if job_info in old_jobs:
+            old_jobs.remove(job_info)
+        else:
+            new_come_jobs.append(job)
+
+    disappeared_jobs = []
+    for job in old_integ.getJobs():
+        if _get_job_info(job) in old_jobs:
+            disappeared_jobs.append(job)
+
+    return new_come_jobs, disappeared_jobs
 
 
 @expose('/integration/<int:id>')
