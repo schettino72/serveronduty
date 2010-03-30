@@ -1,5 +1,6 @@
 <%inherit file="layout.html"/>
 
+<a href="/integration/${job.job_group.integration.id}">${job.job_group.integration.version}</a>
 <h2>Job Id: ${job.id} - ${job.name}</h2>
 
 State: ${job.state}<br/>

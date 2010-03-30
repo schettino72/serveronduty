@@ -3,7 +3,7 @@ from werkzeug import redirect
 from werkzeug.exceptions import NotFound
 
 from websod.utils import session, expose, url_for, serve_template
-from websod.models import Integration, Job, SourceTreeRoot, JobGroup
+from websod.models import Integration, Job, SourceTreeRoot, JobGroup, IntegrationResult
 
 from datetime import timedelta, datetime
 
@@ -22,46 +22,84 @@ from datetime import timedelta, datetime
 @expose('/integration/')
 def integration_list(request):
     integrations = session.query(Integration).order_by(Integration.id.desc()).all()
-    _massageIntegrations(integrations)
+    _massage_integrations(integrations)
     return serve_template('integration_list.html', integrations=integrations,
                           history=Integration.get_elapsed_history())
 
+def _massage_integrations(integrations):
+    for i, intg in enumerate(integrations[:-1]):
+        if intg.state != 'finished':
+            intg.unstables = intg.getJobsByResult("unstable")
+            intg.failures = intg.getJobsByResult('fail')
+            intg.fixed_failures = []
 
-def _massageIntegrations(integrations):
-    for i in xrange(len(integrations) - 1):
-        new_come_jobs, disappeared_jobs = _compareIntegrations(integrations[i], integrations[i+1])
-        integrations[i].new_failures = filter(lambda job: job.result == 'fail', new_come_jobs)
-        integrations[i].unstables = filter(lambda job: job.result == 'unstable', integrations[i].getJobs())
-        integrations[i].disappeared_failures = filter(lambda job: job.result == 'fail', disappeared_jobs)
-    integrations[-1].new_failures = []
-    integrations[-1].disappeared_failures = []
-+    for i in xrange(len(integrations)):
-        integrations[i].unstables = filter(lambda job: job.result == 'unstable', integrations[i].getJobs())
+        if getattr(intg, 'integration_result', None):
+            new_failure_ids = intg.integration_result.new_failures.split(',')
+            fix_failure_ids = intg.integration_result.fixed_failures.split(',')
+            unstable_ids = intg.integration_result.unstables.split(',')
+            failure_ids = intg.integration_result.all_failures.split(',')
 
-def _compareIntegrations(new_integ, old_integ):
+            new_failure_ids = [] if new_failure_ids == [''] else map(int, new_failure_ids)
+            fix_failure_ids = [] if fix_failure_ids == [''] else map(int, fix_failure_ids)
+            unstable_ids = [] if unstable_ids == [''] else map(int, unstable_ids)
+            failure_ids = [] if failure_ids == [''] else map(int, failure_ids)
+
+        else:
+            unstables = intg.getJobsByResult("unstable")
+            failures = intg.getJobsByResult('fail')
+            new_failure_ids, fix_failure_ids = _compare_integrations(failures, integrations[i+1].getJobsByResult('fail'))
+
+            failure_ids = [failure.id for failure in failures]
+            unstable_ids = [unstable.id for unstable in unstables]
+            intg.integration_result = IntegrationResult(new_failures=','.join(map(str, new_failure_ids)),
+                                                        all_failures=','.join(map(str, failure_ids)),
+                                                        fixed_failures=','.join(map(str, fix_failure_ids)),
+                                                        unstables=','.join(map(str, unstable_ids)))
+
+        intg.failures = [_get_job_instance(failure_id)
+                         for failure_id in failure_ids]
+        intg.unstables = [_get_job_instance(_id)
+                         for _id in unstable_ids]
+        intg.fixed_failures = [_get_job_instance(failure_id)
+                               for failure_id in fix_failure_ids]
+
+        for failure in intg.failures:
+            if failure.id in new_failure_ids:
+                failure.new_failure = True
+
+    session.commit()
+
+    intg = integrations[-1]
+    intg.unstables = intg.getJobsByResult("unstable")
+    intg.failures = intg.getJobsByResult('fail')
+    intg.fixed_failures = []
+
+def _compare_integrations(new_integ_jobs, old_integ_jobs):
     # job.log is not included in comparsion since the error log contain
     # file path which is different between revisions.
     _get_job_info = lambda job: (job.name, job.type, job.result, job.state)
 
-    new_come_jobs = []
-    old_jobs = set()
-    for job in old_integ.getJobs():
-        old_jobs.add(_get_job_info(job))
+    new_come_jobs = {}
+    old_jobs = {}
+    for job in old_integ_jobs:
+        old_jobs[_get_job_info(job)] = job.id
 
-    for job in new_integ.getJobs():
+    for job in new_integ_jobs:
         job_info = _get_job_info(job)
         if job_info in old_jobs:
-            old_jobs.remove(job_info)
+            old_jobs.pop(job_info)
         else:
-            new_come_jobs.append(job)
+            new_come_jobs[job_info] = job.id
 
-    disappeared_jobs = []
-    for job in old_integ.getJobs():
-        if _get_job_info(job) in old_jobs:
-            disappeared_jobs.append(job)
+    # return ids only
+    return new_come_jobs.values(), old_jobs.values()
 
-    return new_come_jobs, disappeared_jobs
-
+def _get_job_instance(job_id, job_list=None):
+    if job_list:
+        for job in job_list:
+            if job_id == job.id:
+                return job
+    return session.query(Job).get(job_id)
 
 @expose('/integration/<int:id>')
 def integration(request, id):

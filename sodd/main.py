@@ -174,10 +174,13 @@ def run_ci(project_file):
     # insert into source_location table
     source_tree_id = save_source_tree_root(conn.cursor(), project['url'])
 
+    # clone source-code
+    logging.info("*** Cloning source-code from: %s" % project['url'])
     if os.path.exists('trunk'):
         shutil.rmtree('trunk')
     code = vcs.get_vcs(project['vcs'], project['url'], 'trunk')
     code.clone()
+    logging.info("*** Cloning completed")
 
     # go go go
     stuff = {'conn':conn,
@@ -185,9 +188,9 @@ def run_ci(project_file):
              'code':code,
              'source_tree_id':source_tree_id,
              'instance_id':instance_id}
-    loop_vcs = PeriodicTask(60, VcsTask, [stuff], name="Check trunk")
+    loop_vcs = PeriodicTask(5 * 60, VcsTask, [stuff], name="Check trunk")
 
-    ## Decide which is the first revision that sodd will execute 
+    ## Decide which is the first revision that sodd will execute
     ## one revision number is from <project>.yaml, value of start_rev
     ## the other is from database, the last revision that sodd have ran
     ## just get the larger one to avoid executing same revision twice

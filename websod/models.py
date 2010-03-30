@@ -1,6 +1,6 @@
 from sqlalchemy import Table, Column, ForeignKey
 from sqlalchemy import String, Integer, Text, DateTime, Float, Boolean
-from sqlalchemy.orm import mapper, relation
+from sqlalchemy.orm import mapper, relation, backref
 from sqlalchemy.sql import functions
 from websod.utils import metadata, session
 
@@ -23,6 +23,16 @@ integration_table = Table(
     # the commit comment for the revision, length should be considered
     Column('comment', String(1024)),
     Column('source_tree_root_id', Integer, ForeignKey('source_tree_root.id')),
+    )
+
+integration_result_table = Table(
+    'integration_result', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('integration_id', Integer, ForeignKey('integration.id')),
+    Column('new_failures', Text()),
+    Column('all_failures', Text()),
+    Column('fixed_failures', Text()),
+    Column('unstables', Text()),
     )
 
 sodd_instance_table = Table(
@@ -122,6 +132,8 @@ class Integration(object):
 
         result = []
         for rev in res:
+            if rev.state != 'finished':
+                continue
             total = 0
             for jg in rev.jobgroups:
                 # FIXME there are some unicode values in this column!
@@ -131,6 +143,19 @@ class Integration(object):
             result.append([int(rev.version), total/60.0])
         return result
 
+
+
+class IntegrationResult(object):
+
+    def __init__(self, new_failures=None, all_failures=None,
+                 fixed_failures=None, unstables=None):
+        self.new_failures = new_failures
+        self.all_failures = all_failures
+        self.fixed_failures = fixed_failures
+        self.unstables = unstables
+
+    def __repr__(self):
+        return '<IntegrationResult %s>' % (self.integration_id)
 
 class SoddInstance(object):
     """A machine/configuration where the integration is executed"""
@@ -191,3 +216,6 @@ mapper(JobGroup, job_group_table, properties={
 mapper(Job, job_table, properties={
         'job_group': relation(JobGroup, backref='jobs')
         })
+
+mapper(IntegrationResult, integration_result_table, properties={
+         'integration': relation(Integration, backref=backref('integration_result', uselist=False))})
