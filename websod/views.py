@@ -177,9 +177,9 @@ def _compare_integration_failures(new_integ, old_integ):
 
 def calculate_result(integration):
     """check if all job_groups from this integration terminated"""
-    if integration.result == 'finished':
+    if integration.state == 'finished':
         msg = "Already calcualted integration id:%s" % integration.id
-        raise Integration.AlreadyCalcualted(msg)
+        raise Integration.AlreadyCalculated(msg)
 
     # calculate only if integration finished,
     # every job_group has an entry where state=='finished'
