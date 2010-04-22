@@ -43,7 +43,6 @@ h2 {
     padding-right: 20px;
 }
 .left_menu a {
-    display: block;
     color: #779BB1;
 }
 .left_menu:hover {
@@ -144,4 +143,10 @@ th {
     font-weight: normal;
     padding: 0 10px;
     text-align: left;
+}
+
+div.elapsed_time {
+    float: right;
+    margin-top: 10px;
+    margin-right: 10px;
 }

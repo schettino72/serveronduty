@@ -1,23 +1,30 @@
 """DB operation using SQLite"""
-# FIXME this code is so boring... is there a lightweight single-file ORM?
 
+from dbapiext import execute_f
+
+# FIXME this code is so boring...
+
+
+def get_last_id(cursor):
+    # sqlite
+    if cursor.lastrowid:
+        return cursor.lastrowid
+    # postgres/psycopg2 do not set lastrowid!
+    cursor.execute('select lastval();')
+    return cursor.fetchone()[0]
 
 #
 # integration
 #
 def save_integration(cursor, version, state, result, owner, comment,
                      source_tree_root_id):
-    cursor.execute('''
+    execute_f(cursor, '''
         INSERT INTO integration (version, state, result, owner, comment,
-                                source_tree_root_id) VALUES (?,?,?,?,?,?)''',
-                   (version, state, result, owner, comment, source_tree_root_id))
+                          source_tree_root_id) VALUES (%X,%X,%X,%X,%X,%X)''',
+              version, state, result, owner, comment, source_tree_root_id)
     cursor.connection.commit()
-    return cursor.lastrowid
+    return get_last_id(cursor)
 
-def update_integration(cursor, id_, result, state='finished'):
-    cursor.execute('''UPDATE integration SET state=?, result=? WHERE id=?''',
-                   (state, result, id_))
-    cursor.connection.commit()
 
 def get_last_revision_id(cursor):
     cursor.execute('''
@@ -34,41 +41,41 @@ def get_last_revision_id(cursor):
 # source_tree_root
 #
 def save_source_tree_root(cursor, source_location):
-    cursor.execute('''
-        INSERT INTO source_tree_root (source_location) VALUES (?)''',
-        (source_location,))
+    execute_f(cursor, '''
+        INSERT INTO source_tree_root (source_location) VALUES (%X)''',
+              source_location)
     cursor.connection.commit()
-    return cursor.lastrowid
+    return get_last_id(cursor)
 
 
 #
 # sodd_instance
 #
 def save_sodd_instance(cursor, name, machine):
-    cursor.execute('''
-        INSERT INTO sodd_instance (name, machine) VALUES (?,?)''',
-        (name, machine))
+    execute_f(cursor, '''
+        INSERT INTO sodd_instance (name, machine) VALUES (%X,%X)''',
+              name, machine)
     cursor.connection.commit()
-    return cursor.lastrowid
+    return get_last_id(cursor)
 
 #
 # job_group
 #
-def save_job_group(cursor, started, elapsed, state, result, log, integration_id,
-                                                                sodd_instance_id):
-    cursor.execute('''
+def db_job_group_start(cursor, started, elapsed, state, result, log,
+                       integration_id, sodd_instance_id):
+    execute_f(cursor, '''
         INSERT INTO job_group (started, elapsed, state, result,
                      log, integration_id, sodd_instance_id) VALUES
-                     (?,?,?,?,?,?,?)''',
-        (started, elapsed, state, result, log, integration_id,
-                                                            sodd_instance_id))
+                     (%X,%X,%X,%X,%X,%X,%X)''',
+                   started, elapsed, state, result, log, integration_id,
+                   sodd_instance_id)
     cursor.connection.commit()
-    return cursor.lastrowid
+    return get_last_id(cursor)
 
-def update_job_group(cursor, id_, elapsed, result, log, state='finished'):
-    cursor.execute('''
-        UPDATE job_group SET elapsed=?, state=?, result=?, log=? WHERE
-                        id=?''', (elapsed, state, result, log, id_))
+def db_job_group_finish(cursor, id_, elapsed, result, log, state='finished'):
+    execute_f(cursor, '''
+        UPDATE job_group SET elapsed=%X, state=%X, result=%X, log=%X WHERE
+                        id=%X''', elapsed, state, result, log, id_)
     cursor.connection.commit()
 
 
@@ -77,29 +84,10 @@ def update_job_group(cursor, id_, elapsed, result, log, state='finished'):
 #
 def save_job(cursor, result, type_, id_):
     for row in result:
-        cursor.execute('''
+        execute_f(cursor, '''
             INSERT INTO job (name, type, state, result, log, started, elapsed,
-                            create_status, introduced_result, job_group_id)
-            VALUES (?,?,?,?,?,?,?,?,?,?)''',
-            (row['name'], type_, 'finished', row['result'],
-             row['err']+row['out'],row['started'],row['elapsed'],
-             # I think create_status and introduced_result should be got from
-             # the output of DOIT. Here just set a default value for them
-             # temporarily
-             'create_status', True, id_))
+                             job_group_id)
+            VALUES (%X,%X,%X,%X,%X,%X,%X,%X)''',
+                       row['name'], type_, 'finished', row['result'],
+                       row['err']+row['out'],row['started'],row['elapsed'], id_)
     cursor.connection.commit()
-
-def get_failed_job(cursor, integration_id):
-    cursor.execute('''SELECT id FROM job_group WHERE integration_id=? 
-                      AND result=?''',
-                      (integration_id, 'fail'))
-    res = cursor.fetchall()
-    id_ = []
-    for each in res:
-        id_.append('%s' % each[0])
-    job_group_id = '(' + ','.join(id_) + ')'
-    result_in_statement = "('fail', 'unstable')"
-    cursor.execute('''SELECT name, result, log FROM job WHERE result in %s 
-                      AND job_group_id in %s''' %
-                      (result_in_statement, job_group_id))
-    return cursor.fetchall()

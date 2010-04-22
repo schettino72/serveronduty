@@ -1,4 +1,4 @@
-from os import path
+import os
 
 from werkzeug import Local, LocalManager
 from werkzeug import Response
@@ -22,16 +22,31 @@ metadata = MetaData()
 session = scoped_session(lambda: create_session(application.database_engine,
                          autocommit=False), local_manager.get_ident)
 
+def get_sa_db_uri(driver='', username='', password='', host='', port='', database=''):
+    """get SQLAlchemy DB URI: driver://username:password@host:port/database"""
+    assert driver
+    if driver == 'sqlite':
+        # get absolute file path
+        if not database.startswith('/'):
+            db_file = os.path.abspath(database)
+        else:
+            db_file = database
+        db_uri = '%s:///%s' % (driver, db_file)
+    else:
+        db_uri = ('%s://%s:%s@%s:%s/%s' %
+                  (driver, username, password, host, port, database))
+    return db_uri
+
 
 
 ############## mako
 # calculate the path of the folder this file is in, the application will
 # look for templates in that path
-root_path = path.abspath(path.dirname(__file__))
+root_path = os.path.abspath(os.path.dirname(__file__))
 
 # create a mako template loader for that folder and set the default input
 # encoding to utf-8
-template_lookup = TemplateLookup(directories=[path.join(root_path, 'templates')],
+template_lookup = TemplateLookup(directories=[os.path.join(root_path, 'templates')],
                                  input_encoding='utf-8')
 
 

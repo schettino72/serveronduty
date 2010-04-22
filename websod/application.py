@@ -1,4 +1,5 @@
 from os import path
+
 from sqlalchemy import create_engine
 from werkzeug import SharedDataMiddleware
 from werkzeug import Request, ClosingIterator
@@ -16,8 +17,15 @@ STATIC_PATH = path.join(path.dirname(__file__), 'static')
 
 class WebSod(object):
 
-    def __init__(self, db_uri):
+    def __init__(self, config, db_uri):
+        """
+        @param config (dict): application configuration
+        @db_uri (str): string using SQLAlchemy format:
+                       driver://username:password@host:port/database
+        """
         local.application = self
+
+        self.config = config
         self.database_engine = create_engine(db_uri, convert_unicode=True)
         self.dispatch = SharedDataMiddleware(self.dispatch, {
                 '/static':  STATIC_PATH

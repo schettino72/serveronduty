@@ -2,12 +2,16 @@
 
 import glob
 
-DEFAULT_TASKS = ['checker', 'ut']
+DOIT_CONFIG = {'default_tasks': ['checker', 'ut'],
+               'continue': True}
+
 
 codeFiles = glob.glob("*.py")
+codeFiles.remove('dbapiext.py') # not mine :P
 testFiles = glob.glob("tests/test_*.py")
 to_strip = len('tests/test_')
 pyFiles = codeFiles + testFiles
+
 
 def task_checker():
     """run pyflakes on all project files"""

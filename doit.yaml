@@ -1,6 +1,0 @@
-vcs: bzr
-url: ../../doit
-tasks:
-- checker
-- ut
-start_rev: 199

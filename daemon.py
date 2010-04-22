@@ -9,22 +9,18 @@ from signal import SIGTERM
 class Daemon:
     """
     A generic daemon class.
-    
+
     Usage: subclass the Daemon class and override the run() method
     """
-    def __init__(self, pidfile, dir_='/', stdin='/dev/null', stdout='/dev/null',
-                                                             stderr='/dev/null'):
+    def __init__(self, pidfile, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
         self.stdin = stdin
-        # because some codes in sodd use the relative path, i need this daemon
-        # working under specific directory
-        self.dir_ = dir_
         self.stdout = stdout
         self.stderr = stderr
         self.pidfile = pidfile
 
     def daemonize(self):
         """
-        do the UNIX double-fork magic, see Stevens' "Advanced 
+        do the UNIX double-fork magic, see Stevens' "Advanced
         Programming in the UNIX Environment" for details (ISBN 0201563177)
         http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
         """
@@ -38,7 +34,7 @@ class Daemon:
             sys.exit(1)
 
         # decouple from parent environment
-        os.chdir(self.dir_)
+        os.chdir("/")
         os.setsid()
         os.umask(0)
 
@@ -65,7 +61,7 @@ class Daemon:
         # write pidfile
         atexit.register(self.delpid)
         pid = str(os.getpid())
-        file(self.pidfile, 'w+').write("%s\n" % pid)
+        file(self.pidfile,'w+').write("%s\n" % pid)
 
     def delpid(self):
         os.remove(self.pidfile)
@@ -76,7 +72,7 @@ class Daemon:
         """
         # Check for a pidfile to see if the daemon already runs
         try:
-            pf = file(self.pidfile, 'r')
+            pf = file(self.pidfile,'r')
             pid = int(pf.read().strip())
             pf.close()
         except IOError:
@@ -91,24 +87,25 @@ class Daemon:
         self.daemonize()
         self.run()
 
+
     def stop(self):
         """
         Stop the daemon
         """
         # Get the pid from the pidfile
         try:
-            pf = file(self.pidfile, 'r')
+            pf = file(self.pidfile,'r')
             pid = int(pf.read().strip())
             pf.close()
         except IOError:
             pid = None
 
-        if not pid:
-            message = "pidfile %s does not exist. Daemon not running?\n"
-            sys.stderr.write(message % self.pidfile)
-            return # not an error in a restart
+            if not pid:
+                message = "pidfile %s does not exist. Daemon not running?\n"
+                sys.stderr.write(message % self.pidfile)
+                return # not an error in a restart
 
-        # Try killing the daemon process    
+        # Try killing the daemon process
         try:
             while 1:
                 os.kill(pid, SIGTERM)

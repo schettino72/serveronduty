@@ -1,11 +1,10 @@
-from sqlalchemy.orm import join, outerjoin
-from werkzeug import redirect
+from werkzeug import redirect, Response
 from werkzeug.exceptions import NotFound
 
-from websod.utils import session, expose, url_for, serve_template
+from websod.utils import session, expose, serve_template, application
 from websod.models import Integration, Job, SourceTreeRoot, JobGroup, IntegrationResult
+from websod.sendemail import send_email
 
-from datetime import timedelta, datetime
 
 # @expose('/')
 # def home(request):
@@ -18,93 +17,199 @@ from datetime import timedelta, datetime
 #     return serve_template('home.html')
 
 
-@expose('/') #TODO show only latest integrations. see home function above
-@expose('/integration/')
-def integration_list(request):
-    integrations = session.query(Integration).order_by(Integration.id.desc()).all()
-    _massage_integrations(integrations)
+# just show some dictionary on browser for debugging purpose
+@expose('/debug')
+def debug(request):
+    from pprint import pformat
+    data = application.config
+    return Response(pformat(data))
+
+
+
+@expose('/')
+def home(request):
+    """shows integrations time graph and latest integrations with diff """
+    limit = request.args.get('limit')
+    if limit and limit.isdigit():
+        limit = int(limit)
+    else:
+        limit = 50
+    integrations = session.query(Integration).order_by(Integration.id.desc()).limit(limit).all()
+    integrations_view(integrations)
     return serve_template('integration_list.html', integrations=integrations,
                           history=Integration.get_elapsed_history())
 
-def _massage_integrations(integrations):
-    for i, intg in enumerate(integrations[:-1]):
-        if intg.state != 'finished':
-            intg.unstables = intg.getJobsByResult("unstable")
-            intg.failures = intg.getJobsByResult('fail')
-            intg.fixed_failures = []
 
-        if getattr(intg, 'integration_result', None):
-            new_failure_ids = intg.integration_result.new_failures.split(',')
-            fix_failure_ids = intg.integration_result.fixed_failures.split(',')
-            unstable_ids = intg.integration_result.unstables.split(',')
-            failure_ids = intg.integration_result.all_failures.split(',')
+@expose('/integration/')
+def integration_list(request):
+    """shows all integrations with diff """
+    integrations = session.query(Integration).order_by(Integration.id.desc()).all()
+    integrations_view(integrations)
+    return serve_template('integration_list.html', integrations=integrations,
+                          history='')
 
-            new_failure_ids = [] if new_failure_ids == [''] else map(int, new_failure_ids)
-            fix_failure_ids = [] if fix_failure_ids == [''] else map(int, fix_failure_ids)
-            unstable_ids = [] if unstable_ids == [''] else map(int, unstable_ids)
-            failure_ids = [] if failure_ids == [''] else map(int, failure_ids)
 
+def integrations_view(integrations):
+    """process integrations adding necessary info to be used on templates"""
+    # calculate integration result
+    for integration in integrations:
+        try:
+            calculate_result(integration)
+        except Integration.IntegrationException, exception:
+            pass # not finished or  already calculated, go on
+
+        # get elapsed time
+        # FIXME - add elapsed time to integration result...
+        if integration.state == 'finished':
+            integration.elapsed_time = '%.2f' % (integration.getElapsedTime() / 60.0)
+            calculate_diff(integration)
         else:
-            unstables = intg.getJobsByResult("unstable")
-            failures = intg.getJobsByResult('fail')
-            new_failure_ids, fix_failure_ids = _compare_integrations(failures, integrations[i+1].getJobsByResult('fail'))
+            integration.elapsed_time = ""
 
-            failure_ids = [failure.id for failure in failures]
-            unstable_ids = [unstable.id for unstable in unstables]
-            intg.integration_result = IntegrationResult(new_failures=','.join(map(str, new_failure_ids)),
-                                                        all_failures=','.join(map(str, failure_ids)),
-                                                        fixed_failures=','.join(map(str, fix_failure_ids)),
-                                                        unstables=','.join(map(str, unstable_ids)))
-
-        intg.failures = [_get_job_instance(failure_id)
-                         for failure_id in failure_ids]
-        intg.unstables = [_get_job_instance(_id)
-                         for _id in unstable_ids]
-        intg.fixed_failures = [_get_job_instance(failure_id)
-                               for failure_id in fix_failure_ids]
-
-        for failure in intg.failures:
-            if failure.id in new_failure_ids:
-                failure.new_failure = True
-
+    # put diff values into integration object
+    for integration in integrations:
+        get_diff(integration)
     session.commit()
 
-    intg = integrations[-1]
-    intg.unstables = intg.getJobsByResult("unstable")
-    intg.failures = intg.getJobsByResult('fail')
-    intg.fixed_failures = []
 
-def _compare_integrations(new_integ_jobs, old_integ_jobs):
+def get_diff(integration):
+    """set diff lists on integration object
+    there are 3 lists:
+      * failures
+      * fixed_failures
+      * unstables
+    """
+    # skip diff calculation if integration not finished
+    if integration.state != 'finished':
+        # no need calculate for running tasks since the results are not live.
+        integration.unstables = []
+        integration.failures = []
+        integration.fixed_failures = []
+        return
+
+    result = integration.integration_result
+
+    # ids are stored in DB as comma separated string
+    new_failure_ids = result.new_failures.split(',')
+    fix_failure_ids = result.fixed_failures.split(',')
+    unstable_ids = result.unstables.split(',')
+    failure_ids = result.all_failures.split(',')
+
+    # convert the string to a list of integers
+    new_failure_ids = [] if new_failure_ids == [''] else map(int, new_failure_ids)
+    fix_failure_ids = [] if fix_failure_ids == [''] else map(int, fix_failure_ids)
+    unstable_ids = [] if unstable_ids == [''] else map(int, unstable_ids)
+    failure_ids = [] if failure_ids == [''] else map(int, failure_ids)
+
+    def job(job_id):
+        return session.query(Job).get(job_id)
+
+    # TODO put results in a dict instead of using integration object
+    integration.failures = [job(id_) for id_ in failure_ids]
+    integration.unstables = [job(id_) for id_ in unstable_ids]
+    integration.fixed_failures = [job(id_) for id_ in fix_failure_ids]
+    # mark new failures
+    for failure in integration.failures:
+        failure.new_failure = failure.id in new_failure_ids
+
+
+def calculate_diff(integration):
+    """Calcualte diff from integration
+    results is save on integration_result table
+    """
+    # TODO this logic can not handle integrations with a higher revision
+    # number being executed before a previous revision
+
+    # check if calculated already
+    if getattr(integration, 'integration_result', None):
+        return
+
+    # classify jobs by result
+    unstables = integration.getJobsByResult("unstable")
+    failures = integration.getJobsByResult('fail')
+    failure_ids = [failure.id for failure in failures]
+    unstable_ids = [unstable.id for unstable in unstables]
+    # calculate diff
+    parent = session.query(Integration).order_by(Integration.id.desc()).\
+        filter("id < %d" % integration.id).first()
+    if parent is None:
+        # nothing to compare on first ever integration
+        new_failure_ids = failure_ids
+        fix_failure_ids = []
+    else:
+        new_failure_ids, fix_failure_ids = _compare_integration_failures(
+            integration, parent)
+    # put into DB
+    integration.integration_result = IntegrationResult(
+        new_failures=','.join(map(str, new_failure_ids)),
+        all_failures=','.join(map(str, failure_ids)),
+        fixed_failures=','.join(map(str, fix_failure_ids)),
+        unstables=','.join(map(str, unstable_ids)))
+
+
+def _compare_integration_failures(new_integ, old_integ):
     # job.log is not included in comparsion since the error log contain
     # file path which is different between revisions.
-    _get_job_info = lambda job: (job.name, job.type, job.result, job.state)
+    _get_job_info = lambda job: (job.name, job.type, job.state)
 
-    new_come_jobs = {}
+    new_failure_ids = []
+    fixed_failure_ids = []
+
     old_jobs = {}
-    for job in old_integ_jobs:
-        old_jobs[_get_job_info(job)] = job.id
+    for job in old_integ.getJobs():
+        old_jobs[_get_job_info(job)] = job
 
-    for job in new_integ_jobs:
-        job_info = _get_job_info(job)
+    for new_job in new_integ.getJobs():
+        job_info = _get_job_info(new_job)
         if job_info in old_jobs:
-            old_jobs.pop(job_info)
-        else:
-            new_come_jobs[job_info] = job.id
+            old_job = old_jobs.pop(job_info)
+            # compare
+            if new_job.result == 'fail' and old_job.result == 'success':
+                new_failure_ids.append(new_job.id)
+            elif new_job.result == 'success' and old_job.result == 'fail':
+                fixed_failure_ids.append(old_job.id)
+        elif new_job.result == 'fail':
+            # for new added jobs, check 'failures'
+            new_failure_ids.append(new_job.id)
 
-    # return ids only
-    return new_come_jobs.values(), old_jobs.values()
+    return new_failure_ids, fixed_failure_ids
 
-def _get_job_instance(job_id, job_list=None):
-    if job_list:
-        for job in job_list:
-            if job_id == job.id:
-                return job
-    return session.query(Job).get(job_id)
+
+def calculate_result(integration):
+    """check if all job_groups from this integration terminated"""
+    if integration.result == 'finished':
+        msg = "Already calcualted integration id:%s" % integration.id
+        raise Integration.AlreadyCalcualted(msg)
+
+    # calculate only if integration finished,
+    # every job_group has an entry where state=='finished'
+    num_job_groups = len(application.config['tasks'])
+    num_created = len(integration.jobgroups)
+    # check all job_groups were created/started
+    if num_created != num_job_groups:
+        raise Integration.NotFinished('Not ready %d/%d job_group created' %
+                                      (num_created, num_job_groups))
+    # check all finished
+    for job_group in integration.jobgroups:
+        if job_group.state != 'finished':
+            raise Integration.NotFinished('JobGroup "%s" still running.' %
+                                          job_group.id)
+
+    # integration really finished, calculate result
+    integration.state = 'finished'
+    for job_group in integration.jobgroups:
+        if job_group.result != 'success':
+            integration.result = 'fail'
+            break
+    else:
+        integration.result = 'success'
+    return integration.result
+
+
 
 @expose('/integration/<int:id>')
 def integration(request, id):
-
-    # use lazy loading of referenced object to SQLAlchemy to handle everything
+    """integration page just show list of jobs with their result"""
     integration = session.query(Integration).get(id)
     # collect the failed jobs
     failed_jobs = integration.getJobsByResult("fail")
@@ -128,48 +233,71 @@ def job(request, id):
 
 
 
-@expose('/testdata')
-def add_testdata(request):
-
-    print request.method
-    # do not support non-POST requests
-    if request.method != 'POST':
-        # TODO: maybe forward to an error page
-        raise NotFound()
-
-    sourceRoot = SourceTreeRoot('/trunk')
-
-    # a set of jobs to add to groups
-
-    job1 = Job("/test/file1.py", "unit", "success", 'log',
-               None, None,'finished')
-    job2 = Job("/ftest/ftest_file1.py", "ftest", "success", 'log',
-               None, None,'finished')
-    job3 = Job("/test/file2.py", "unit", "fail", 'log',
-               None, None,'finished')
-    job4 = Job("/test/file3.py", "ftest", "unstable", 'log',
-               None, None,'finished')
-    # this will link different job groups to the same job object, but it is not
-    # a problem for now
-
-    jobgroup_i1_1 = JobGroup(None, None, 'finished', 'success', 'log')
-    jobgroup_i1_1.jobs = [job1, job2]
-    jobgroup_i1_2 = JobGroup(None, None, 'finish', 'failed', 'log')
-    i1 = Integration('20898','finished','fail', 'balazs', 'test comment')
-    jobgroup_i1_2.jobs = [job1, job3, job4]
-    i1.source_tree_root = sourceRoot
-    i1.jobgroups = [jobgroup_i1_1, jobgroup_i1_2]
-
-    jobgroup_i2_1 = JobGroup(None, None, 'finished', 'fail', 'log')
-    jobgroup_i2_1.jobs = [job4]
-    jobgroup_i2_2 = JobGroup(None, None, 'finished', 'fail', 'log')
-    jobgroup_i2_1.jobs = [job4]
-    i2 = Integration('20899','finished','success', 'eduardo', 'tc2')
-    i2.source_tree_root = sourceRoot
-    i2.jobgroups = [jobgroup_i2_1, jobgroup_i2_2]
-    session.add_all([i1,i2])
+# this is supposed to be called by sodd's to notify when a job_group is done
+@expose('/group_finished/<int:integration_id>')
+def group_finished(request, integration_id):
+    integration = session.query(Integration).get(integration_id)
+    try:
+        calculate_result(integration)
+        calculate_diff(integration)
+    except Integration.IntegrationException, exception:
+        return Response(str(exception))
     session.commit()
-    # after commit, the ID's are updated for inserted objects
 
-    # go to the integration list page
-    return redirect('/integration')
+    get_diff(integration)
+
+    # send email
+    if 'email_from' in application.config and 'email_to' in application.config:
+        subject = '[ServerOnDuty] r%s (%s) -- %s' % \
+            (integration.version, integration.owner, integration.result)
+
+        lines = []
+        integration_url = "%s/integration/%s"
+        lines.append(integration_url % (application.config['websod'],
+                                        integration.id))
+
+        lines.append('\nrevision: %s' % integration.version)
+        lines.append('owner: %s' % integration.owner)
+        lines.append('result: %s' % integration.result)
+        lines.append('comments: %s' % integration.comment)
+        lines.append('')
+        lines.append('-' * 40)
+        lines.append('')
+
+        # FIXME: DRY it
+        new_f_lines = []
+        for job in integration.failures:
+            if job.new_failure:
+                new_f_lines.append("  - %s" % job.name)
+        if new_f_lines:
+            lines.append("New failures:")
+            lines.extend(new_f_lines)
+
+        known_f_lines = []
+        for job in integration.failures:
+            if not job.new_failure:
+                known_f_lines.append("  - %s" % job.name)
+        if known_f_lines:
+            lines.append("Known failures:")
+            lines.extend(known_f_lines)
+
+        if integration.fixed_failures:
+            lines.append("Fixed failures:")
+            for job in integration.fixed_failures:
+                lines.append("  - %s" % job.name)
+            lines.append("")
+
+        if integration.unstables:
+            lines.append("Unstable:")
+            for job in integration.unstables:
+                lines.append("  - %s" % job.name)
+            lines.append("")
+
+        content = "\n".join(lines)
+
+        send_email(application.config['email_from'],
+                   application.config['email_to'],
+                   subject, content)
+
+    return Response(integration.result)
+

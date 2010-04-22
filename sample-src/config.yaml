@@ -1,0 +1,24 @@
+vcs: hg
+url: .
+websod: http://localhost:5000
+
+db:
+  driver: sqlite
+  database: sod.db
+   # driver: postgres
+   # username: me
+   # password:
+   # host: localhost
+   # port: 5432
+   # database: sod
+
+pre-integration:
+ - integrationsetup:copy_self
+
+tasks:
+ - test
+
+start_rev: 0
+
+email_from: me@myself.com
+#email_to: me@myself.com

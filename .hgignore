@@ -3,12 +3,19 @@ syntax:glob
 *.swp
 *.pyc
 .coverage
+.doit.db
 
 ServerOnDuty.egg-info
+websod/static/flot
+sod.db
+samplesod
+
+pool
+trunk
+log/*.log
+backup
+
 
 testbin
-sod.db
-sodd/.doit.db
-pool
 tags
 

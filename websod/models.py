@@ -45,7 +45,8 @@ sodd_instance_table = Table(
 job_group_table = Table(
     'job_group', metadata,
     Column('id', Integer, primary_key=True),
-    Column('started', DateTime()),
+    # do not use DateTime, see: http://groups.google.com/group/sqlalchemy/browse_frm/thread/296129afe60943e5/d035362f3d7dd63b?tvc=1#d035362f3d7dd63b
+    Column('started', String()),
     Column('elapsed', Float()), # time in seconds
     Column('state', String(10)), # running/waiting/finished
     Column('result', String(10)),
@@ -63,14 +64,8 @@ job_table = Table(
     Column('state', String(10)), # running/waiting/finished
     Column('result', String(20)),
     Column('log', Text()),
-    Column('started', DateTime()),
+    Column('started', String()),
     Column('elapsed', Float()), # time in seconds
-    # calculated field, the job can be added, same or removed
-    # in this version/revision
-    Column('create_status', String(10)),
-    Column('introduced_result', Boolean()),
-    # calculated field, the job result is new (true) or same (false)
-    # compared to the last version/revision
     Column('job_group_id', Integer, ForeignKey('job_group.id')),
     )
 
@@ -89,11 +84,16 @@ class SourceTreeRoot(object):
 
 class Integration(object):
 
+    class IntegrationException(Exception): pass
+    class NotFinished(IntegrationException): pass
+    class AlreadyCalculated(IntegrationException): pass
+
     def __init__(self, version='', state='', result='',
                  owner='', comment=''):
         self.version = version #TODO rename as "revision" type int
+        # FIXME add a column to save integration parent revision
         self.state = state
-        self.result = result
+        self.result = result # FIXME move this to IntegrationResult table
         self.owner = owner
         self.comment = comment
 
@@ -101,17 +101,29 @@ class Integration(object):
         return '<Integration (%s)%s - %s:%s>' % (
             self.id, self.version, self.state, self.result)
 
+    # TODO: arghhh. not PEP8
     def getJobs(self):
         if not hasattr(self, 'jobs_list'):
             jobs = []
             for a_jobgroup in self.jobgroups:
-                jobs.extend(a_jobgroup.jobs)
+                if a_jobgroup:
+                    if a_jobgroup.jobs:
+                        jobs.extend(a_jobgroup.jobs)
             self.jobs_list = jobs
         return self.jobs_list
 
     def getJobsByResult(self, result_str):
         return filter(lambda job: job.result == result_str,
                       self.getJobs())
+
+    def getElapsedTime(self):
+        total = 0.0
+        for jg in self.jobgroups:
+            # FIXME there are some unicode values in this column!
+            if type(jg.elapsed) is not float:
+                continue
+            total += jg.elapsed
+        return total
 
     @staticmethod
     def get_elapsed_history():
@@ -132,14 +144,9 @@ class Integration(object):
 
         result = []
         for rev in res:
-            if rev.state != 'finished':
+            if rev.state != 'finished' or rev.result != 'success':
                 continue
-            total = 0
-            for jg in rev.jobgroups:
-                # FIXME there are some unicode values in this column!
-                if type(jg.elapsed) is not float:
-                    continue
-                total += jg.elapsed
+            total = rev.getElapsedTime()
             result.append([int(rev.version), total/60.0])
         return result
 
@@ -170,6 +177,7 @@ class SoddInstance(object):
 class JobGroup(object):
     """A group of jobs executed on the same SoddInstance"""
     def __init__(self, started=None, elapsed=None, state='', result='', log='', ):
+        # TODO add a "description" column that will hod doit task as in the config.yaml
         self.started = started
         self.elapsed = elapsed
         self.state = state
@@ -199,6 +207,10 @@ class Job(object):
         # FIXME do not show all integrations
         res = session.query(Job).filter_by(name=self.name).order_by(Job.id)
         return [[int(i.job_group.integration.version), i.elapsed] for i in res]
+
+
+
+
 
 mapper(SourceTreeRoot, source_tree_root_table)
 

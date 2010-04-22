@@ -11,10 +11,19 @@
     <th>Commit comment</th>
   </tr>
 
+%if history:
+<script type="text/javascript" language="javascript">
+$(function () {
+    var history_data = ${history}
+    $.plot($("#integration-eplased-graph"),
+            [{data: history_data, label: "runtime in min"}]);
+    });
+</script>
 <span>
   <div id="integration-eplased-graph" class="elapsed-graph"></div>
   <div class="elapsed-graph-label">Revision number</div>
 </span>
+%endif
 
 
 %for intg in integrations:
@@ -24,6 +33,7 @@
     <td>${intg.state}</td>
     <td>${intg.owner}</td>
     <td>
+        <div class="elapsed_time">${intg.elapsed_time} m</div>
         <pre>${intg.comment}</pre>
 
         %if intg.failures:
@@ -70,24 +80,3 @@
   </tr>
 %endfor
 </table>
-
-## add some dumb data (displayed only if no data available)
-%if not integrations:
-  <div id="admin_functions">
-    <fieldset>
-      <legend>Admin functions</legend>
-      <form action="${ url_for('add_testdata') }" method="POST">
-	<input type="submit" value="Create test data" />
-      </form>
-    </fieldset>
-  </div>
-%endif
-
-
-<script type="text/javascript" language="javascript">
-$(function () {
-    var history_data = ${history}
-    $.plot($("#integration-eplased-graph"),
-            [{data: history_data, label: "runtime in min"}]);
-    });
-</script>
