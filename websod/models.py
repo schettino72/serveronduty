@@ -206,7 +206,7 @@ class Job(object):
         #res = session.query(Job).join(JobGroup).join(Integration).filter(Job.name==self.name).filter(Integration.version<self.job_group.integration.version).order_by(Integration.version.desc()).limit(NO_OF_HISTORY_LAST_VALUES)
         # FIXME do not show all integrations
         res = session.query(Job).filter_by(name=self.name).order_by(Job.id)
-        return [[int(i.job_group.integration.version), i.elapsed] for i in res]
+        return [[int(i.job_group.integration.version), i.elapsed] for i in res if i.elapsed]
 
 
 
