@@ -20,7 +20,14 @@ ${job.log | h}
 <script id="source" language="javascript" type="text/javascript">
 $(function () {
     var data = ${history};
-    var this_rev = [[${job.job_group.integration.version}, ${job.elapsed}]];
+    var this_elapsed = '${job.elapsed}';
+    if(this_elapsed != 'None'){ // yes thats an ungly hack
+        this_elapsed = parseFloat(this_elapsed);
+    }
+    else{
+        this_elapsed = 0;
+    }
+    var this_rev = [[${job.job_group.integration.version}, this_elapsed]];
     $.plot($("#elapsed-graph"), [ {data: data, label: 'runtime in sec'},
                                   {data: this_rev, points: { show: true }}]);
 });
