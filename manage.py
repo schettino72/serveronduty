@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 
 import yaml
 from werkzeug import script
@@ -17,7 +18,8 @@ def make_app(config_file):
     # config
     assert config_file.endswith('.yaml')
     config = yaml.load(open(config_file))
-    base_path = os.path.dirname(os.path.abspath(config_file))
+    # add current folder to path for post-integration scripts
+    sys.path.insert(0, os.path.dirname(os.path.abspath(config_file)))
 
     return WebSod(config, get_sa_db_uri(**config['db']))
 
@@ -99,7 +101,6 @@ def make_cherryserver(daemon='', config='config.yaml',
                      hostname=('h', hostname), port=('p', port)):
         """Start websod using CherryPy (deployment)"""
         full_config = os.path.abspath(config)
-        base_path = os.path.dirname(full_config)
 
         # FIXME log errors and access, see:
         # http://old.nabble.com/Logging-to-screen-with-a-WSGI-application...-td20784864.html
