@@ -9,23 +9,19 @@ def send_email(from_, to, cc, subject, content):
     @param cc (list - str)
     @param content (str)
     """
-    if type(to) is list:
-        to_str = ', '.join(to)
-    if type(cc) is list:
-        cc_str = ', '.join(cc)
-
-
     msg = MIMEText(content, _charset='utf-8')
     msg['Subject'] = subject
     msg['From'] = from_
-    msg['To'] = to_str
-    msg['Cc'] = cc_str
+    assert type(to) is list
+    assert type(cc) is list
+    msg['To'] = ",".join(to)
+    msg['Cc'] = ",".join(cc)
 
     email_is_sent = False
     try:
         email_server = SMTP('smtp')
         try:
-            email_server.sendmail(from_, to, msg.as_string())
+            email_server.sendmail(from_, to + cc, msg.as_string())
             email_is_sent = True
         except:
             logging.error("*** Failed to send the email")
