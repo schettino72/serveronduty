@@ -62,7 +62,8 @@ job_table = Table(
     Column('name', String(100)),
     Column('type', String(20)),
     Column('state', String(10)), # running/waiting/finished
-    Column('result', String(20)),
+    # FIXME websod does not handle errors!
+    Column('result', String(20)), # success/fail/unstable/error
     Column('log', Text()),
     Column('started', String()),
     Column('elapsed', Float()), # time in seconds

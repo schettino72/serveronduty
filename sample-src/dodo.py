@@ -1,11 +1,15 @@
 import sys
 import traceback
 import glob
+import os
 
 DOIT_CONFIG = {'default_tasks': ['test']}
 
 ###########################
 # run unit-tests
+
+# create its own process group
+os.setpgid(0, 0)
 
 def task_test():
     for tf in glob.glob('*_test.py'):
