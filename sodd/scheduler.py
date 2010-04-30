@@ -219,7 +219,11 @@ class ProcessTask(Task):
 
     def _signal(self, sig_name):
         this_gpid = os.getpgid(0)
-        target_gpid = os.getpgid(self.proc.pid)
+        try:
+            target_gpid = os.getpgid(self.proc.pid)
+        except OSError:
+            # process terminated
+            target_gpid = None
 
         # gone, no need to send signal
         if ((self.proc.returncode is not None) and (this_gpid != target_gpid)):
@@ -228,7 +232,7 @@ class ProcessTask(Task):
         logging.info("%s %s" % (sig_name, self.proc.pid))
 
         try:
-            if this_gpid == target_gpid:
+            if (target_gpid is None) or (this_gpid == target_gpid):
                 os.kill(self.proc.pid, getattr(signal, sig_name))
             else:
                 logging.info("KILL pgid %s " % target_gpid)
