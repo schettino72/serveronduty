@@ -7,7 +7,7 @@ setup(name='ServerOnDuty',
                         'CherryPy==3.1.2',
                         'Mako==0.2.5',
                         'SQLAlchemy==0.5.8',
-                        'doit==0.7.0',
+                        'doit',
                         'simplejson==1.9.2',
                         'PyYAML==3.09',
                         # dev requires
