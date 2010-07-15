@@ -12,6 +12,6 @@ def task_install_flot():
                         'tar --directory %s -xzf %s/%s' %
                         (static_location, static_location, flot_tar),
                         ],
-            'dependencies': [True], # run-once
+            'file_dep': [True], # run-once
             'targets': ["%s/flot" % static_location],
             }

@@ -18,7 +18,7 @@ def task_checker():
     for file in pyFiles:
         yield {'actions': ["pyflakes %s"% file],
                'name':file,
-               'dependencies':(file,),
+               'file_dep':(file,),
                'title': (lambda task: task.name)}
 
 def task_ut():
@@ -26,7 +26,7 @@ def task_ut():
     for test in testFiles:
         yield {'name': test,
                'actions': ["py.test -v %s" % test],
-               'dependencies': [test, test[to_strip:]],
+               'file_dep': [test, test[to_strip:]],
                'verbosity': 2}
 
 
