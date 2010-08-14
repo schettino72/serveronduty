@@ -12,21 +12,21 @@ from daemon import Daemon
 
 def make_app(config_file):
     """create a websod instance - a WSGI application"""
-    from websod.application import WebSod
-    from websod.utils import get_sa_db_uri
+    import websod
 
     # config
     assert config_file.endswith('.yaml')
-    config = yaml.load(open(config_file))
     # add current folder to path for post-integration scripts
     sys.path.insert(0, os.path.dirname(os.path.abspath(config_file)))
 
-    return WebSod(config, get_sa_db_uri(**config['db']))
+    config = yaml.load(open(config_file))
+    websod.setup_app(websod.app, config)
+    return websod.app
 
 
 def make_initdb(config='config.yaml'):
     def initdb(config=('c', config)):
-        make_app(config).init_database()
+        make_app(config).db.init_database()
     return initdb
 
 
@@ -64,8 +64,8 @@ def make_shell(init_func=None, config='config.yaml', banner=None,
 
 # make_shell helper
 def app_namespace(config):
-    from websod import models, utils # add this to current namespace
-    models, utils # keep pyflakes quiet
+    from websod import models # add this to current namespace
+    models # keep pyflakes quiet
     application = make_app(config)
     return locals()
 
@@ -121,38 +121,12 @@ def make_cherryserver(daemon='', config='config.yaml',
     return start_server
 
 
-def make_runserver(app_factory, config='config.yaml',
-                   hostname='localhost', port=5000,
-                   use_reloader=False, use_debugger=False, use_evalex=True,
-                   threaded=False, processes=1, static_files=None,
-                   extra_files=None):
-    """Returns an action callback that spawns a new development server.
 
-    .. versionadded:: 0.5
-       `static_files` and `extra_files` was added.
-
-    :param app_factory: a function that returns a new WSGI application.
-    :param hostname: the default hostname the server should listen on.
-    :param port: the default port of the server.
-    :param use_reloader: the default setting for the reloader.
-    :param use_evalex: the default setting for the evalex flag of the debugger.
-    :param threaded: the default threading setting.
-    :param processes: the default number of processes to start.
-    :param static_files: optionally a dict of static files.
-    :param extra_files: optionally a list of extra files to track for reloading.
-    """
-    def action(config=('c', config), hostname=('h', hostname), port=('p', port),
-               reloader=use_reloader, debugger=use_debugger,
-               evalex=use_evalex, threaded=threaded, processes=processes):
-        """Start a new development server."""
-        from werkzeug.serving import run_simple
-        app = app_factory(config)
-        run_simple(hostname, port, app, reloader, debugger, evalex,
-                   extra_files, 1, threaded, processes,
-                   static_files=static_files)
-    return action
-
-
+def make_flaskserver(config='config.yaml'):
+    def run(config=('c', config)):
+        flask_app = make_app(config)
+        flask_app.run(debug=True)
+    return run
 
 
 
@@ -171,7 +145,6 @@ if __name__ == "__main__":
     action_cherryserver = make_cherryserver()
 
     # development websod
-    action_runserver = make_runserver(make_app, use_reloader=True,
-                                      use_debugger=True)
+    action_runserver = make_flaskserver()
 
     script.run()

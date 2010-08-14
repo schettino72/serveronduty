@@ -2,7 +2,9 @@ from sqlalchemy import Table, Column, ForeignKey
 from sqlalchemy import String, Integer, Text, DateTime, Float, Boolean
 from sqlalchemy.orm import mapper, relation, backref
 from sqlalchemy.sql import functions
-from websod.utils import metadata, session
+
+from websod.database import metadata
+
 
 source_tree_root_table = Table(
     'source_tree_root', metadata,
@@ -127,7 +129,7 @@ class Integration(object):
         return total
 
     @staticmethod
-    def get_elapsed_history():
+    def get_elapsed_history(session):
         #the last integrations
         #TODO add limit(NO_OF_HISTORY_LAST_VALUES
         res = session.query(Integration).order_by(Integration.version.desc()).all()
@@ -203,7 +205,7 @@ class Job(object):
     def __repr__(self):
         return '<Job %s>' % self.name
 
-    def get_elapsed_history(self):
+    def get_elapsed_history(self, session):
         #res = session.query(Job).join(JobGroup).join(Integration).filter(Job.name==self.name).filter(Integration.version<self.job_group.integration.version).order_by(Integration.version.desc()).limit(NO_OF_HISTORY_LAST_VALUES)
         # FIXME do not show all integrations
         res = session.query(Job).filter_by(name=self.name).order_by(Job.id)

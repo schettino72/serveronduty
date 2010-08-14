@@ -1,82 +1,84 @@
-<%inherit file="layout.html"/>
+{% extends "layout.html" %}
 
-<h2>Integrations</h2>
+{% block content %}
+    <h2>Integrations</h2>
 
-<table border="0" cellspacing="0" cellpadding="0">
-  <tr>
-    <th>Version</th>
-    <th>Result</th>
-    <th>State</th>
-    <th>Owner</th>
-    <th>Commit comment</th>
-  </tr>
+    <table border="0" cellspacing="0" cellpadding="0">
+      <tr>
+	<th>Version</th>
+	<th>Result</th>
+	<th>State</th>
+	<th>Owner</th>
+	<th>Commit comment</th>
+      </tr>
 
-%if history:
-<script type="text/javascript" language="javascript">
-$(function () {
-    var history_data = ${history}
-    $.plot($("#integration-eplased-graph"),
-            [{data: history_data, label: "runtime in min"}]);
-    });
-</script>
-<span>
-  <div id="integration-eplased-graph" class="elapsed-graph"></div>
-  <div class="elapsed-graph-label">Revision number</div>
-</span>
-%endif
+    {% if history %}
+    <script type="text/javascript" language="javascript">
+    $(function () {
+	var history_data = {{ history}}
+	$.plot($("#integration-eplased-graph"),
+		[{data: history_data, label: "runtime in min"}]);
+	});
+    </script>
+    <span>
+      <div id="integration-eplased-graph" class="elapsed-graph"></div>
+      <div class="elapsed-graph-label">Revision number</div>
+    </span>
+    {% endif %}
 
 
-%for intg in integrations:
-  <tr class="${intg.result}_tablerow">
-    <td><a href="${ url_for('integration', id=intg.id) }">${intg.version}</a></td>
-    <td>${intg.result}</td>
-    <td>${intg.state}</td>
-    <td>${intg.owner}</td>
-    <td>
-        <div class="elapsed_time">${intg.elapsed_time} m</div>
-        <pre>${intg.comment}</pre>
+    {% for intg in integrations %}
+      <tr class="{{ intg.result}}_tablerow">
+	<td><a href="{{  url_for('integration', id_=intg.id) }}">{{ intg.version}}</a></td>
+	<td>{{ intg.result}}</td>
+	<td>{{ intg.state}}</td>
+	<td>{{ intg.owner}}</td>
+	<td>
+	    <div class="elapsed_time">{{ intg.elapsed_time}} m</div>
+	    <pre>{{ intg.comment}}</pre>
 
-        %if intg.failures:
-            <div class="jobs">
-                <div class="title"><h5>Failures</h5></div>
-                <div class="failures">
-                    %for job in intg.failures:
-                        %if getattr(job, 'new_failure', False):
-                            <h6 class="new_failure">
-                        %else:
-                            <h6>
-                        %endif
-                        <a href="/job/${job.id}">${job.name}</a></h6>
-                    %endfor
-                </div>
-                <div class="clear"></div>
-            </div>
-        %endif
+	    {% if intg.failures %}
+		<div class="jobs">
+		    <div class="title"><h5>Failures</h5></div>
+		    <div class="failures">
+			{% for job in intg.failures %}
+			    {% if job.new_failure %}
+				<h6 class="new_failure">
+			    {% else %}
+				<h6>
+			    {% endif %}
+			    <a href="/job/{{ job.id}}">{{ job.name}}</a></h6>
+			{% endfor %}
+		    </div>
+		    <div class="clear"></div>
+		</div>
+	    {% endif %}
 
-        %if intg.unstables:
-            <div class="jobs">
-                <div class="title"><h5>Unstables</h5></div>
-                <div class="unstables">
-                    %for job in intg.unstables:
-                        <h6><a href="/job/${job.id}">${job.name}</a></h6>
-                    %endfor
-                </div>
-                <div class="clear"></div>
-            </div>
-        %endif
+	    {% if intg.unstables %}
+		<div class="jobs">
+		    <div class="title"><h5>Unstables</h5></div>
+		    <div class="unstables">
+			{% for job in intg.unstables %}
+			    <h6><a href="/job/{{ job.id}}">{{ job.name}}</a></h6>
+			{% endfor %}
+		    </div>
+		    <div class="clear"></div>
+		</div>
+	    {% endif %}
 
-        %if intg.fixed_failures:
-            <div class="jobs">
-                <div class="title"><h5>Fixed</h5></div>
-                <div class="fixed">
-                    %for job in intg.fixed_failures:
-                        <h6><a href="/job/${job.id}">${job.name}</a></h6>
-                    %endfor
-                </div>
-                <div class="clear"></div>
-            </div>
-        %endif
-    </td>
-  </tr>
-%endfor
-</table>
+	    {% if intg.fixed_failures %}
+		<div class="jobs">
+		    <div class="title"><h5>Fixed</h5></div>
+		    <div class="fixed">
+			{% for job in intg.fixed_failures %}
+			    <h6><a href="/job/{{ job.id}}">{{ job.name}}</a></h6>
+			{% endfor %}
+		    </div>
+		    <div class="clear"></div>
+		</div>
+	    {% endif %}
+	</td>
+      </tr>
+    {% endfor %}
+    </table>
+{% endblock %}

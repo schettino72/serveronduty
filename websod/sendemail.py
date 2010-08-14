@@ -30,3 +30,61 @@ def send_email(from_, to, cc, subject, content):
         logging.error("*** Can't connect to the SMTP server")
 
     return email_is_sent
+
+
+
+#### sample of email SOD integration result content
+    # # send email
+    # if 'email_from' in application.config and 'email_to' in application.config:
+    #     subject = '[ServerOnDuty] r%s (%s) -- %s' % \
+    #         (integration.version, integration.owner, integration.result)
+
+    #     lines = []
+    #     integration_url = "%s/integration/%s"
+    #     lines.append(integration_url % (application.config['websod'],
+    #                                     integration.id))
+
+    #     lines.append('\nrevision: %s' % integration.version)
+    #     lines.append('owner: %s' % integration.owner)
+    #     lines.append('result: %s' % integration.result)
+    #     lines.append('comments: %s' % integration.comment)
+    #     lines.append('')
+    #     lines.append('-' * 40)
+    #     lines.append('')
+
+    #     # FIXME: DRY it
+    #     new_f_lines = []
+    #     for job in integration.failures:
+    #         if job.new_failure:
+    #             new_f_lines.append("  - %s" % job.name)
+    #     if new_f_lines:
+    #         lines.append("New failures:")
+    #         lines.extend(new_f_lines)
+
+    #     known_f_lines = []
+    #     for job in integration.failures:
+    #         if not job.new_failure:
+    #             known_f_lines.append("  - %s" % job.name)
+    #     if known_f_lines:
+    #         lines.append("Known failures:")
+    #         lines.extend(known_f_lines)
+
+    #     if integration.fixed_failures:
+    #         lines.append("Fixed failures:")
+    #         for job in integration.fixed_failures:
+    #             lines.append("  - %s" % job.name)
+    #         lines.append("")
+
+    #     if integration.unstables:
+    #         lines.append("Unstable:")
+    #         for job in integration.unstables:
+    #             lines.append("  - %s" % job.name)
+    #         lines.append("")
+
+    #     content = "\n".join(lines)
+
+    #     send_email(application.config['email_from'],
+    #                application.config['email_to'],
+    #                subject, content)
+
+

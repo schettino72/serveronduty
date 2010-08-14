@@ -1,35 +1,36 @@
-<%inherit file="layout.html"/>
+{% extends "layout.html" %}
 
-<a href="/integration/${job.job_group.integration.id}">${job.job_group.integration.version}</a>
-<h2>Job Id: ${job.id} - ${job.name}</h2>
+{% block content %}
+    <a href="/integration/{{ job.job_group.integration.id}}">{{ job.job_group.integration.version}}</a>
+    <h2>Job Id: {{ job.id}} - {{ job.name}}</h2>
 
-State: ${job.state}<br/>
-Result: <span class="${job.result}">${job.result}</span><br/>
-Type: ${job.type}<br/>
-Elapsed time: ${job.elapsed}<br/>
+    State: {{ job.state}}<br/>
+    Result: <span class="{{ job.result}}">{{ job.result}}</span><br/>
+    Type: {{ job.type}}<br/>
+    Elapsed time: {{ job.elapsed}}<br/>
 
-Job log:<br/>
-<pre style="white-space: -moz-pre-wrap;">
-${job.log | h}
-</pre>
+    Job log:<br/>
+    <pre style="white-space: -moz-pre-wrap;">
+    {{ job.log | e}}
+    </pre>
 
 
-<div id="elapsed-graph" class="elapsed-graph"></div>
-<div class="elapsed-graph-label">Revision number</div>
+    <div id="elapsed-graph" class="elapsed-graph"></div>
+    <div class="elapsed-graph-label">Revision number</div>
 
-<script id="source" language="javascript" type="text/javascript">
-$(function () {
-    var data = ${history};
-    var this_elapsed = '${job.elapsed}';
-    if(this_elapsed != 'None'){ // yes thats an ungly hack
-        this_elapsed = parseFloat(this_elapsed);
-    }
-    else{
-        this_elapsed = 0;
-    }
-    var this_rev = [[${job.job_group.integration.version}, this_elapsed]];
-    $.plot($("#elapsed-graph"), [ {data: data, label: 'runtime in sec'},
-                                  {data: this_rev, points: { show: true }}]);
-});
-</script>
-
+    <script id="source" language="javascript" type="text/javascript">
+    $(function () {
+	var data = {{ history}};
+	var this_elapsed = '{{ job.elapsed}}';
+	if(this_elapsed != 'None'){ // yes thats an ungly hack
+	    this_elapsed = parseFloat(this_elapsed);
+	}
+	else{
+	    this_elapsed = 0;
+	}
+	var this_rev = [[{{ job.job_group.integration.version}}, this_elapsed]];
+	$.plot($("#elapsed-graph"), [ {data: data, label: 'runtime in sec'},
+				      {data: this_rev, points: { show: true }}]);
+    });
+    </script>
+{% endblock %}
